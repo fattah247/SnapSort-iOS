@@ -13,7 +13,7 @@ protocol SettingsStoreProtocol {
     var isNotificationsEnabled: Bool { get set }
     var notificationTime: Date { get set }
     var repeatInterval: RepeatInterval { get set }
-    var photoLimit: Int { get set }
+    var storageTarget: Int64 { get set }
     var sortOption: PhotoSortOption { get set }
     var showDeletionConfirmation: Bool { get set }
     var selectedWeeklyDays: [Weekday]  { get set }
@@ -27,7 +27,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var isNotificationsEnabled = false
     @Published var notificationTime = Date()
     @Published var repeatInterval: RepeatInterval = .daily
-    @Published var photoLimit = 10
+    @Published var storageTarget: Int64 = 100 * 1024 * 1024  // 100 MB default
     @Published var sortOption: PhotoSortOption = .random
     @Published var showDeletionConfirmation = true
     
@@ -43,7 +43,7 @@ final class SettingsViewModel: ObservableObject {
         settingsStore.isNotificationsEnabled     != isNotificationsEnabled
         || settingsStore.notificationTime         != notificationTime
         || settingsStore.repeatInterval           != repeatInterval
-        || settingsStore.photoLimit               != photoLimit
+        || settingsStore.storageTarget             != storageTarget
         || settingsStore.sortOption               != sortOption
         || settingsStore.showDeletionConfirmation != showDeletionConfirmation
         || settingsStore.selectedWeeklyDays       != selectedWeeklyDays
@@ -64,7 +64,7 @@ final class SettingsViewModel: ObservableObject {
         isNotificationsEnabled = settingsStore.isNotificationsEnabled
         notificationTime = settingsStore.notificationTime
         repeatInterval = settingsStore.repeatInterval
-        photoLimit = settingsStore.photoLimit
+        storageTarget = settingsStore.storageTarget
         sortOption = settingsStore.sortOption
         showDeletionConfirmation = settingsStore.showDeletionConfirmation
         // Optionally load these if your store supports them:
@@ -76,7 +76,7 @@ final class SettingsViewModel: ObservableObject {
         settingsStore.isNotificationsEnabled = isNotificationsEnabled
         settingsStore.notificationTime = notificationTime
         settingsStore.repeatInterval = repeatInterval
-        settingsStore.photoLimit = photoLimit
+        settingsStore.storageTarget = storageTarget
         settingsStore.sortOption = sortOption
         settingsStore.showDeletionConfirmation = showDeletionConfirmation
         // Optionally save the new properties if needed:

@@ -11,11 +11,12 @@ import OSLog
 final class CoreDataManager: NSObject, ObservableObject {
     static let shared = CoreDataManager()
     private let container: NSPersistentContainer
-    
+    private var mergeObserver: NSObjectProtocol?
+
     var viewContext: NSManagedObjectContext {
         container.viewContext
     }
-    
+
     private override init() {
         container = NSPersistentContainer(name: "PhotoReviewModel")
         super.init()  // Call super.init() first
@@ -24,9 +25,15 @@ final class CoreDataManager: NSObject, ObservableObject {
         setupObservers()
     }
 
+    deinit {
+        if let mergeObserver {
+            NotificationCenter.default.removeObserver(mergeObserver)
+        }
+    }
+
     private func configureSecurity() {
         let description = container.persistentStoreDescriptions.first
-        
+
         // Set option for persistent history tracking
         description?.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
     }
@@ -38,14 +45,14 @@ final class CoreDataManager: NSObject, ObservableObject {
             }
         }
     }
-    
+
     private func setupObservers() {
-        NotificationCenter.default.addObserver(
+        mergeObserver = NotificationCenter.default.addObserver(
             forName: .NSManagedObjectContextDidSave,
             object: nil,
             queue: .main
-        ) { notification in
-            self.viewContext.mergeChanges(fromContextDidSave: notification)
+        ) { [weak self] notification in
+            self?.viewContext.mergeChanges(fromContextDidSave: notification)
         }
     }
     

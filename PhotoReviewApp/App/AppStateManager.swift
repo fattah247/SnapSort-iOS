@@ -69,8 +69,8 @@ final class AppStateManager: ObservableObject {
     
     private func handleNotificationAuthorizationChange(authorized: Bool) {
         if !authorized {
-            DispatchQueue.main.async {
-                self.activeTab = .settings
+            DispatchQueue.main.async { [weak self] in
+                self?.activeTab = .settings
             }
         }
     }

@@ -70,6 +70,7 @@
 		9C88CAD82D61BB3A0071D30E /* Exceptions for "PhotoReviewApp" folder in "PhotoReviewApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Info.plist,
 				Widgets/PhotoReviewWidget.swift,
 			);
 			target = 9C2466C42D48AC6900523334 /* PhotoReviewApp */;
@@ -297,7 +298,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1620;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					9C2466C42D48AC6900523334 = {
 						CreatedOnToolsVersion = 16.2;
@@ -476,6 +477,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -532,6 +534,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -546,9 +549,12 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"PhotoReviewApp/Preview Content\"";
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PhotoReviewApp/Info.plist;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "\"This app requires access to add photos to your library so you can save your edited images and creations.\"";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"This app requires access to your photo library to allow you to review and manage your photos.\"";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -587,9 +593,12 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"PhotoReviewApp/Preview Content\"";
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PhotoReviewApp/Info.plist;
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "\"This app requires access to add photos to your library so you can save your edited images and creations.\"";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"This app requires access to your photo library to allow you to review and manage your photos.\"";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;

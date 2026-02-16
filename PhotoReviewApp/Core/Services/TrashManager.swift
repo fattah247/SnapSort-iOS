@@ -52,9 +52,9 @@ final class CoreDataTrashManager: NSObject, ObservableObject, @preconcurrency Tr
         )
         PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.deleteAssets(assets)
-        } completionHandler: { success, error in
+        } completionHandler: { [weak self] success, error in
             if success {
-                Task { @MainActor in self.refresh() }
+                Task { @MainActor in self?.refresh() }
             } else if let error {
                 AppLogger.general.error("Failed to trash photo: \(error.localizedDescription, privacy: .public)")
             }
@@ -80,9 +80,9 @@ final class CoreDataTrashManager: NSObject, ObservableObject, @preconcurrency Tr
         let assets = PHAsset.fetchAssets(in: collection, options: nil)
         PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.deleteAssets(assets)
-        } completionHandler: { success, error in
+        } completionHandler: { [weak self] success, error in
             if success {
-                Task { @MainActor in self.refresh() }
+                Task { @MainActor in self?.refresh() }
             } else if let error {
                 AppLogger.general.error("Failed to empty trash: \(error.localizedDescription, privacy: .public)")
             }

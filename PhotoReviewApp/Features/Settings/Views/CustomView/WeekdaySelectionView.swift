@@ -10,27 +10,21 @@ import SwiftUI
 struct WeekdaySelectionView: View {
     @Binding var selection: [Weekday]
     
-    let columns = [GridItem(.adaptive(minimum: 44, maximum: 60), spacing: 12)]
-    
+    let columns = [GridItem(.adaptive(minimum: 44, maximum: 60), spacing: AppSpacing.sm)]
+
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        LazyVGrid(columns: columns, spacing: AppSpacing.sm) {
             ForEach(Weekday.allCases) { day in
                 Text(day.shortName)
-                    .font(.subheadline.weight(.medium))
+                    .font(AppTypography.labelLarge)
                     .monospacedDigit()
                     .frame(width: 44, height: 44)
                     .background(
                         selection.contains(day)
-                        ? AnyView(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.indigo, Color.purple]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        ? AnyView(AppColors.primaryGradient)
                         : AnyView(Color(.tertiarySystemFill))
                     )
-                    .foregroundColor(selection.contains(day) ? .white : .primary)
+                    .foregroundColor(selection.contains(day) ? .white : AppColors.textPrimary)
                     .clipShape(Circle())
                     .overlay(
                         Circle()
@@ -38,7 +32,7 @@ struct WeekdaySelectionView: View {
                     )
                     .contentShape(Circle())
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        withAnimation(.appSpring) {
                             if let idx = selection.firstIndex(of: day) {
                                 selection.remove(at: idx)
                             } else {
@@ -48,6 +42,6 @@ struct WeekdaySelectionView: View {
                     }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, AppSpacing.xxs)
     }
 }

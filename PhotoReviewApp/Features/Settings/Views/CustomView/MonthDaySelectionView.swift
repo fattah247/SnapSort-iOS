@@ -11,15 +11,15 @@ struct MonthDaySelectionView: View {
     @Binding var selection: Int
     @Environment(\.horizontalSizeClass) var hSize
     
-    private let columns = Array(repeating: GridItem(.flexible(minimum: 30, maximum: 44), spacing: 8), count: 7)
+    private let columns = Array(repeating: GridItem(.flexible(minimum: 30, maximum: 44), spacing: AppSpacing.xs), count: 7)
     
     var body: some View {
         Group {
             if hSize == .compact {
                 HStack {
                     Text("Day")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(AppTypography.bodySmall)
+                        .foregroundColor(AppColors.textSecondary)
                     
                     Spacer()
                     
@@ -32,24 +32,18 @@ struct MonthDaySelectionView: View {
                     )
                 }
             } else {
-                LazyVGrid(columns: columns, spacing: 8) {
+                LazyVGrid(columns: columns, spacing: AppSpacing.xs) {
                     ForEach(1...31, id: \.self) { day in
                         Text("\(day)")
-                            .font(.subheadline.weight(.medium))
+                            .font(AppTypography.labelLarge)
                             .monospacedDigit()
                             .frame(minWidth: 36, minHeight: 36)
                             .background(
                                 selection == day
-                                ? AnyView(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [Color.indigo, Color.purple]),
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
+                                ? AnyView(AppColors.primaryGradient)
                                 : AnyView(Color(.tertiarySystemFill))
                             )
-                            .foregroundColor(selection == day ? .white : .primary)
+                            .foregroundColor(selection == day ? .white : AppColors.textPrimary)
                             .clipShape(Circle())
                             .overlay(
                                 Circle()
@@ -57,13 +51,13 @@ struct MonthDaySelectionView: View {
                             )
                             .contentShape(Circle())
                             .onTapGesture {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                withAnimation(.appSpring) {
                                     selection = day
                                 }
                             }
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, AppSpacing.xxs)
             }
         }
     }

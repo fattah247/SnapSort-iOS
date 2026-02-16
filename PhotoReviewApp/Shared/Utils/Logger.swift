@@ -24,4 +24,9 @@ struct AppLogger {
         subsystem: subsystem,
         category: "Security"
     )
+
+    static let analysis = Logger(
+        subsystem: subsystem,
+        category: "Analysis"
+    )
 }

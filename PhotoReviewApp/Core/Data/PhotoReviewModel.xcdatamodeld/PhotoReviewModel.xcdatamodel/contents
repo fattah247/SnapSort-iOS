@@ -18,6 +18,20 @@
         <attribute name="reviewDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="userAction" optional="YES" attributeType="String"/>
     </entity>
+    <entity name="PhotoAnalysisEntity" representedClassName=".PhotoAnalysisEntity" syncable="YES">
+        <attribute name="assetIdentifier" attributeType="String"/>
+        <attribute name="analysisDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="categories" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformerName"/>
+        <attribute name="blurScore" optional="YES" attributeType="Float" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="brightnessScore" optional="YES" attributeType="Float" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="featurePrintData" optional="YES" attributeType="Binary"/>
+        <attribute name="sceneLabels" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformerName"/>
+        <attribute name="hasQRCode" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="libraryModDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byAssetIdentifier">
+            <fetchIndexElement property="assetIdentifier" type="Binary" order="ascending"/>
+        </fetchIndex>
+    </entity>
     <entity name="TrashEntity" representedClassName=".TrashEntity" syncable="YES">
         <attribute name="assetIdentifier" optional="YES" attributeType="String"/>
         <attribute name="dateDeleted" optional="YES" attributeType="Date" usesScalarValueType="NO"/>

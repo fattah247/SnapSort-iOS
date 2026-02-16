@@ -12,161 +12,267 @@ import OSLog
 struct PhotoCardView: View {
     let photo: Photo
     let viewModel: ReviewViewModel
+    var onSkip: (() -> Void)?
+
     @GestureState private var dragOffset = CGSize.zero
     @EnvironmentObject var haptic: HapticService
-    
+
     @State private var overlayOpacity: Double = 0
-    @State private var swipeIndicatorOffset: CGFloat = 0
-    private let maxSwipeIndicatorOffset: CGFloat = 60
-    
+    @State private var iconScale: CGFloat = 0.5
+    @State private var hasTriggeredThresholdHaptic = false
+
+    // Thresholds
+    private let iconAppearThreshold: CGFloat = 30 // Show icons early (15% of typical screen)
+    private let decisionThresholdRatio: CGFloat = 0.3
+
     var body: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottom) {
-                imageContent(for: geometry.size)
-                    .overlay(swipeFeedbackOverlay)
-                
-                metadataOverlay
+            VStack(spacing: AppSpacing.sm) {
+                // Card
+                ZStack(alignment: .bottom) {
+                    imageContent(for: geometry.size)
+                        .overlay(swipeFeedbackOverlay(width: geometry.size.width))
+
+                    metadataOverlay
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous)
+                        .fill(AppColors.cardBackground)
+                        .shadow(color: shadowColor, radius: 20, x: 0, y: 5)
+                )
+                .offset(dragOffset)
+                .rotationEffect(.degrees(Double(dragOffset.width / 25)))
+                .scaleEffect(1 - abs(dragOffset.width) / 1500)
+                .gesture(dragGesture(geometry: geometry))
+                .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.8), value: dragOffset)
+
+                // Skip button
+                if let onSkip = onSkip {
+                    Button(action: onSkip) {
+                        HStack(spacing: AppSpacing.xs) {
+                            Text("Skip for later")
+                                .font(AppTypography.labelMedium)
+                            Image(systemName: "arrow.right.circle")
+                                .font(.system(size: 16))
+                        }
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.vertical, AppSpacing.xs)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(.systemBackground))  // Ensures background adapts to both light and dark mode
-                    .shadow(color: shadowColor, radius: 20, x: 0, y: 5) // Dynamic shadow based on color scheme
-            )
-            .offset(dragOffset)
-            .rotationEffect(.degrees(Double(dragOffset.width / 30)))
-            .scaleEffect(1 - abs(dragOffset.width) / 1000)
-            .gesture(dragGesture(geometry: geometry))
-            .animation(.interactiveSpring(), value: dragOffset)
         }
-        .padding(.vertical, 20)
+        .padding(.vertical, AppSpacing.md)
     }
-    
+
     private func imageContent(for size: CGSize) -> some View {
         ZStack {
             if let image = photo.image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous))
             } else {
-                Color.secondary
+                Color.secondary.opacity(0.3)
                 Image(systemName: "photo")
-                    .font(.largeTitle)
-                    .foregroundColor(.white)
+                    .font(.system(size: 48))
+                    .foregroundColor(.white.opacity(0.5))
             }
         }
-        .frame(width: size.width, height: size.height)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .frame(width: size.width, height: size.height * 0.85)
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous)
+                .stroke(Color.white.opacity(0.15), lineWidth: 1)
         )
     }
-    
-    private var swipeFeedbackOverlay: some View {
-        ZStack {
+
+    private func swipeFeedbackOverlay(width: CGFloat) -> some View {
+        let progress = abs(dragOffset.width) / (width * decisionThresholdRatio)
+        let clampedProgress = min(progress, 1.0)
+
+        return ZStack {
+            // Gradient overlay based on swipe direction
             if dragOffset.width > 0 {
-                Color.green.opacity(0.3)
+                LinearGradient(
+                    colors: [AppColors.bookmark.opacity(0.0), AppColors.bookmark.opacity(0.4 * clampedProgress)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             } else if dragOffset.width < 0 {
-                Color.red.opacity(0.3)
+                LinearGradient(
+                    colors: [AppColors.delete.opacity(0.4 * clampedProgress), AppColors.delete.opacity(0.0)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             }
+
+            // Action icons
+            swipeIndicators(progress: clampedProgress)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .overlay(swipeIndicator)
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous))
         .opacity(overlayOpacity)
     }
-    
-    private var swipeIndicator: some View {
+
+    private func swipeIndicators(progress: CGFloat) -> some View {
         HStack {
-            if dragOffset.width < -50 {
-                Image(systemName: "trash")
-                    .font(.title)
-                    .foregroundColor(.red)
-                    .offset(x: swipeIndicatorOffset)
-                    .transition(.scale)
+            // Delete indicator (left side)
+            if dragOffset.width < -iconAppearThreshold {
+                VStack(spacing: AppSpacing.xs) {
+                    ZStack {
+                        Circle()
+                            .fill(AppColors.deleteGradient)
+                            .frame(width: 60, height: 60)
+
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                    .scaleEffect(iconScale)
+
+                    Text("Delete")
+                        .font(AppTypography.labelSmall)
+                        .foregroundColor(.white)
+                        .opacity(progress > 0.5 ? 1 : 0)
+                }
+                .padding(.leading, AppSpacing.lg)
+                .transition(.scale.combined(with: .opacity))
             }
-            
+
             Spacer()
-            
-            if dragOffset.width > 50 {
-                Image(systemName: "bookmark.fill")
-                    .font(.title)
-                    .foregroundColor(.green)
-                    .offset(x: -swipeIndicatorOffset)
-                    .transition(.scale)
+
+            // Bookmark indicator (right side)
+            if dragOffset.width > iconAppearThreshold {
+                VStack(spacing: AppSpacing.xs) {
+                    ZStack {
+                        Circle()
+                            .fill(AppColors.bookmarkGradient)
+                            .frame(width: 60, height: 60)
+
+                        Image(systemName: "bookmark.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                    .scaleEffect(iconScale)
+
+                    Text("Bookmark")
+                        .font(AppTypography.labelSmall)
+                        .foregroundColor(.white)
+                        .opacity(progress > 0.5 ? 1 : 0)
+                }
+                .padding(.trailing, AppSpacing.lg)
+                .transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(30)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: dragOffset.width)
     }
-    
+
     private func dragGesture(geometry: GeometryProxy) -> some Gesture {
-        DragGesture()
+        let decisionThreshold = geometry.size.width * decisionThresholdRatio
+
+        return DragGesture()
             .updating($dragOffset) { value, state, _ in
                 state = value.translation
-                handleDragProgress(value.translation.width)
-                withAnimation {
-                    overlayOpacity = min(abs(value.translation.width) / CGFloat(200), CGFloat(0.7))
-                    swipeIndicatorOffset = min(abs(value.translation.width), maxSwipeIndicatorOffset)
+                let absWidth = abs(value.translation.width)
+
+                // Update overlay opacity
+                withAnimation(.easeOut(duration: 0.1)) {
+                    overlayOpacity = min(absWidth / 100, 1.0)
+                    iconScale = min(0.5 + (absWidth / decisionThreshold) * 0.5, 1.0)
+                }
+
+                // Haptic feedback at threshold
+                if absWidth > decisionThreshold && !hasTriggeredThresholdHaptic {
+                    haptic.impact(.medium)
+                    DispatchQueue.main.async {
+                        hasTriggeredThresholdHaptic = true
+                    }
+                } else if absWidth < decisionThreshold && hasTriggeredThresholdHaptic {
+                    DispatchQueue.main.async {
+                        hasTriggeredThresholdHaptic = false
+                    }
                 }
             }
             .onEnded { value in
-                handleDragEnded(value.translation, width: geometry.size.width)
-                withAnimation(.spring()) {
+                handleDragEnded(value.translation, threshold: decisionThreshold)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                     overlayOpacity = 0
-                    swipeIndicatorOffset = 0
+                    iconScale = 0.5
                 }
+                hasTriggeredThresholdHaptic = false
             }
     }
-    
+
     private var metadataOverlay: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Image(systemName: "calendar")
-                        .font(.caption2)
+                        .font(.system(size: 11))
                     Text(photo.creationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown Date")
-                        .font(.caption2)
+                        .font(AppTypography.caption)
                 }
-                
+
                 HStack(spacing: 6) {
-                    Image(systemName: "photo")
-                        .font(.caption2)
+                    Image(systemName: "doc")
+                        .font(.system(size: 11))
                     Text(photo.fileSize.formatted(.byteCount(style: .file)))
-                        .font(.caption2)
+                        .font(AppTypography.caption)
                 }
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, AppSpacing.sm)
+            .padding(.vertical, AppSpacing.xs)
             .background(
                 .ultraThinMaterial,
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                in: RoundedRectangle(cornerRadius: AppSpacing.radiusSmall, style: .continuous)
             )
+
+            Spacer()
+
+            // Smart category badges
+            if !photo.smartCategories.isEmpty {
+                categoryBadges
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding([.horizontal, .bottom], 16)
+        .padding([.horizontal, .bottom], AppSpacing.md)
     }
-    
-    private func handleDragProgress(_ translationWidth: CGFloat) {
-        _ = abs(translationWidth) / UIScreen.main.bounds.width
-        haptic.prepare()
+
+    @ViewBuilder
+    private var categoryBadges: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(photo.smartCategories).prefix(3), id: \.self) { category in
+                HStack(spacing: 3) {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 9, weight: .semibold))
+                    Text(category.rawValue)
+                        .font(.system(size: 9, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(category.color.opacity(0.85))
+                )
+            }
+        }
     }
-    
-    private func handleDragEnded(_ translation: CGSize, width: CGFloat) {
-        let decisionThreshold = width * 0.3
+
+    private func handleDragEnded(_ translation: CGSize, threshold: CGFloat) {
         let direction: SwipeDirection = translation.width > 0 ? .right : .left
-        
-        if abs(translation.width) > decisionThreshold {
+
+        if abs(translation.width) > threshold {
             viewModel.handleSwipe(direction, for: photo)
         }
     }
-    
-    // Dynamic shadow color for light and dark modes
+
     private var shadowColor: Color {
         if UITraitCollection.current.userInterfaceStyle == .dark {
-            return Color.black.opacity(0.6) // Darker shadow for Dark Mode
+            return Color.black.opacity(0.6)
         } else {
-            return Color.black.opacity(0.2) // Softer shadow for Light Mode
+            return Color.black.opacity(0.15)
         }
     }
 }

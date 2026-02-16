@@ -10,25 +10,25 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: AppSpacing.sectionSpacing) {
                     notificationsSection
                     reviewPreferencesSection
                     repetitionSection
                     deletionSection
-                    
+
                     // Add bottom spacer to ensure content isn't covered
                     Color.clear.frame(height: 60)
                 }
-                .padding(.vertical, 20)
-                .padding(.horizontal, 16)
+                .padding(.vertical, AppSpacing.sectionSpacing)
+                .padding(.horizontal, AppSpacing.md)
                 // Add the overlay directly to the VStack
                 .overlay(
                     saveConfirmationOverlay
-                        .padding(.bottom, 24),
+                        .padding(.bottom, AppSpacing.lg),
                     alignment: .bottom
                 )
             }
-            .background(Color(.systemGroupedBackground).ignoresSafeArea())
+            .background(AppColors.groupedBackground.ignoresSafeArea())
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -38,12 +38,12 @@ struct SettingsView: View {
                     } label: {
                         Text("Save")
                             .fontWeight(.semibold)
-                            .foregroundColor(settings.hasUnsavedChanges ? .white : .secondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
+                            .foregroundColor(settings.hasUnsavedChanges ? .white : AppColors.textSecondary)
+                            .padding(.horizontal, AppSpacing.md)
+                            .padding(.vertical, AppSpacing.xs)
                             .background(
                                 settings.hasUnsavedChanges
-                                ? Color.indigo
+                                ? AppColors.primary
                                 : Color(.quaternarySystemFill)
                             )
                             .clipShape(Capsule())
@@ -53,7 +53,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .tint(.indigo)
+        .tint(AppColors.primary)
         .alert("Confirm Deletion", isPresented: $showTrashConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
@@ -69,23 +69,23 @@ struct SettingsView: View {
         SectionCard(
             title: LocalizedStrings.notificationsSection,
             icon: "bell.badge.fill",
-            color: .indigo
+            color: AppColors.primary
         ) {
             VStack(spacing: 0) {
                 Toggle(isOn: $settings.isNotificationsEnabled) {
                     SettingRow(icon: "bell",
                                title: LocalizedStrings.notificationsSection,
-                               iconColor: .indigo)
+                               iconColor: AppColors.primary)
                 }
-                .toggleStyle(SwitchToggleStyle(tint: .indigo))
-                .padding(.vertical, 12)
+                .toggleStyle(SwitchToggleStyle(tint: AppColors.primary))
+                .padding(.vertical, AppSpacing.sm)
                 .dynamicTypeSize(.medium ... .accessibility2)
                 
                 if settings.isNotificationsEnabled {
                     Divider()
                     SettingRow(icon: "clock",
                                title: LocalizedStrings.notificationBody,
-                               iconColor: .indigo) {
+                               iconColor: AppColors.primary) {
                         DatePicker(
                             "",
                             selection: $settings.notificationTime,
@@ -93,14 +93,14 @@ struct SettingsView: View {
                         )
                         .labelsHidden()
                     }
-                               .padding(.vertical, 12)
+                               .padding(.vertical, AppSpacing.sm)
                                .dynamicTypeSize(.medium ... .accessibility2)
                 } else {
                     Divider()
                     Text("— \(LocalizedStrings.notificationBody)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 12)
+                        .font(AppTypography.bodySmall)
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.vertical, AppSpacing.sm)
                         .dynamicTypeSize(.medium ... .accessibility2)
                 }
             }
@@ -111,28 +111,26 @@ struct SettingsView: View {
         SectionCard(
             title: LocalizedStrings.settingsTitle,
             icon: "photo.on.rectangle.angled",
-            color: .teal
+            color: AppColors.success
         ) {
             VStack(spacing: 0) {
-                SettingRow(icon: "photo.stack",
-                           title: "Photos per Session",
-                           iconColor: .teal) {
-                    IncrementDecrementStepper(
-                        value: $settings.photoLimit,
-                        range: 5...50,
-                        step: 5,
+                SettingRow(icon: "externaldrive.badge.plus",
+                           title: "Storage Target",
+                           iconColor: AppColors.success) {
+                    StorageTargetStepper(
+                        value: $settings.storageTarget,
                         onIncrement: { haptic.impact(.light) },
                         onDecrement: { haptic.impact(.light) }
                     )
                 }
-                           .padding(.vertical, 12)
+                           .padding(.vertical, AppSpacing.sm)
                            .dynamicTypeSize(.medium ... .accessibility2)
-                
+
                 Divider()
-                
+
                 SettingRow(icon: "arrow.up.arrow.down",
                            title: "Sorting Method",
-                           iconColor: .teal) {
+                           iconColor: AppColors.success) {
                     Picker("", selection: $settings.sortOption) {
                         ForEach(PhotoSortOption.allCases, id: \.self) { option in
                             Text(option.rawValue.capitalized).tag(option)
@@ -141,7 +139,7 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
                     .onChange(of: settings.sortOption) { haptic.impact(.medium) }
                 }
-                           .padding(.vertical, 12)
+                           .padding(.vertical, AppSpacing.sm)
                            .dynamicTypeSize(.medium ... .accessibility2)
             }
         }
@@ -151,12 +149,12 @@ struct SettingsView: View {
         SectionCard(
             title: "Repetition Schedule",
             icon: "repeat",
-            color: .orange
+            color: AppColors.warning
         ) {
             VStack(spacing: 0) {
                 SettingRow(icon: "calendar",
                            title: "Repeat Schedule",
-                           iconColor: .orange) {
+                           iconColor: AppColors.warning) {
                     Picker("", selection: $settings.repeatInterval) {
                         ForEach(RepeatInterval.allCases, id: \.self) { interval in
                             Text(interval.rawValue.capitalized).tag(interval)
@@ -165,31 +163,31 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
                     .onChange(of: settings.repeatInterval) { haptic.impact(.medium) }
                 }
-                           .padding(.vertical, 12)
+                           .padding(.vertical, AppSpacing.sm)
                            .dynamicTypeSize(.medium ... .accessibility2)
-                
+
                 switch settings.repeatInterval {
                 case .weekly:
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
                         Divider()
                         Text("Selected Days")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(AppTypography.bodySmall)
+                            .foregroundColor(AppColors.textSecondary)
                             .dynamicTypeSize(.medium ... .accessibility2)
                         WeekdaySelectionView(selection: $settings.selectedWeeklyDays)
                     }
-                    .padding(.vertical, 12)
-                    
+                    .padding(.vertical, AppSpacing.sm)
+
                 case .monthly:
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
                         Divider()
                         Text("Day of Month")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(AppTypography.bodySmall)
+                            .foregroundColor(AppColors.textSecondary)
                             .dynamicTypeSize(.medium ... .accessibility2)
                         MonthDaySelectionView(selection: $settings.selectedMonthlyDay)
                     }
-                    .padding(.vertical, 12)
+                    .padding(.vertical, AppSpacing.sm)
                     
                 default:
                     EmptyView()
@@ -203,17 +201,17 @@ struct SettingsView: View {
         SectionCard(
             title: "Deletion Settings",
             icon: "trash.fill",
-            color: .red
+            color: AppColors.danger
         ) {
             VStack(spacing: 0) {
                 SettingRow(icon: "exclamationmark.shield",
                            title: "Notice PopUp",
-                           iconColor: .red) {
+                           iconColor: AppColors.danger) {
                     Toggle("", isOn: $settings.showDeletionConfirmation)
-                        .toggleStyle(SwitchToggleStyle(tint: .red))
+                        .toggleStyle(SwitchToggleStyle(tint: AppColors.danger))
                         .onChange(of: settings.showDeletionConfirmation) { haptic.impact(.light) }
                 }
-                           .padding(.vertical, 12)
+                           .padding(.vertical, AppSpacing.sm)
                            .dynamicTypeSize(.medium ... .accessibility2)
                 
                 Divider()
@@ -224,10 +222,10 @@ struct SettingsView: View {
                 } label: {
                     SettingRow(icon: "trash",
                                title: "Empty Trash Now",
-                               iconColor: .red)
+                               iconColor: AppColors.danger)
                 }
                 .buttonStyle(.plain)
-                .padding(.vertical, 12)
+                .padding(.vertical, AppSpacing.sm)
                 .accessibilityLabel("Empty Trash Now")
             }
         }
@@ -238,15 +236,15 @@ struct SettingsView: View {
     private var saveConfirmationOverlay: some View {
         Group {
             if showSaveConfirmation {
-                HStack(spacing: 10) {
+                HStack(spacing: AppSpacing.xs) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.title3)
-                        .foregroundColor(.green)
+                        .foregroundColor(AppColors.success)
                     Text("Settings Saved")
-                        .font(.subheadline.weight(.medium))
+                        .font(AppTypography.labelLarge)
                 }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 24)
+                .padding(.vertical, AppSpacing.sm)
+                .padding(.horizontal, AppSpacing.lg)
                 .background(
                     Capsule()
                         .fill(.regularMaterial)
@@ -259,7 +257,7 @@ struct SettingsView: View {
                 .transition(.move(edge: .bottom))
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: showSaveConfirmation)
+        .animation(.appSpring, value: showSaveConfirmation)
     }
     
     // MARK: – Actions

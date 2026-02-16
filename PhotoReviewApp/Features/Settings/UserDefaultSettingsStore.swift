@@ -29,9 +29,13 @@ final class UserDefaultsSettingsStore: SettingsStoreProtocol {
         set { defaults.set(newValue.rawValue, forKey: Constants.UserDefaultsKeys.repeatInterval) }
     }
     
-    var photoLimit: Int {
-        get { defaults.integer(forKey: Constants.UserDefaultsKeys.photoLimit) }
-        set { defaults.set(newValue, forKey: Constants.UserDefaultsKeys.photoLimit) }
+    var storageTarget: Int64 {
+        get {
+            let value = defaults.integer(forKey: Constants.UserDefaultsKeys.storageTarget)
+            // Default to 100 MB if not set
+            return value == 0 ? (100 * 1024 * 1024) : Int64(value)
+        }
+        set { defaults.set(Int(newValue), forKey: Constants.UserDefaultsKeys.storageTarget) }
     }
     
     var sortOption: PhotoSortOption {
