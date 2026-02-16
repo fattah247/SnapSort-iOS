@@ -6,6 +6,7 @@
 //
 import Foundation
 import CoreData
+import WidgetKit
 
 protocol AnalyticsServiceProtocol {
     var totalStorageSaved: Int64 { get }
@@ -70,8 +71,19 @@ final class CoreDataAnalyticsService: ObservableObject, AnalyticsServiceProtocol
     private func saveContext() {
         do {
             try context.save()
+            syncToSharedDefaults()
         } catch {
             AppLogger.coreData.error("Error saving analytics: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    private func syncToSharedDefaults() {
+        guard let defaults = UserDefaults(suiteName: Constants.AppGroup.identifier) else { return }
+        defaults.set(currentStreak, forKey: Constants.SharedDefaults.streak)
+        defaults.set(Int(totalStorageSaved), forKey: Constants.SharedDefaults.storageSaved)
+        defaults.set(Int(totalReviewed), forKey: Constants.SharedDefaults.totalReviewed)
+        defaults.set(Int(totalDeleted), forKey: Constants.SharedDefaults.totalDeleted)
+        defaults.set(Int(totalBookmarked), forKey: Constants.SharedDefaults.totalBookmarked)
+        WidgetCenter.shared.reloadTimelines(ofKind: Constants.Widget.kind)
     }
 }
