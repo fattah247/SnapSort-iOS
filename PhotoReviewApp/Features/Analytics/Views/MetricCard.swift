@@ -4,7 +4,6 @@
 //
 //  Created by Muhammad Abdul Fattah on 07/02/25.
 //
-// Create MetricCard.swift
 import SwiftUI
 
 struct MetricCard: View {
@@ -13,44 +12,53 @@ struct MetricCard: View {
     let value: String
     let gradient: LinearGradient
 
-    var body: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white.opacity(0.9))
+    @State private var isPressed = false
 
-                Text(value)
-                    .font(.title2)
-                    .fontWeight(.heavy)
-                    .foregroundColor(.white)
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            // Icon row
+            HStack {
+                ZStack {
+                    Circle()
+                        .fill(.white.opacity(0.2))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
             }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial)
-            .cornerRadius(12)
 
             Spacer()
 
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .symbolVariant(.circle.fill)
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white.opacity(0.8), gradient)
-                .padding(12)
+            // Value and title
+            VStack(alignment: .leading, spacing: 4) {
+                Text(value)
+                    .font(AppTypography.numberMedium)
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(title)
+                    .font(AppTypography.labelSmall)
+                    .foregroundColor(.white.opacity(0.8))
+            }
         }
-        .padding(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
+        .padding(AppSpacing.md)
+        .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: AppSpacing.radiusLarge, style: .continuous)
                 .fill(gradient)
-                .shadow(color: Color.black.opacity(0.3), radius: 12, x: 0, y: 4)
         )
-        .padding(.horizontal)
+        .overlay(
+            RoundedRectangle(cornerRadius: AppSpacing.radiusLarge, style: .continuous)
+                .stroke(.white.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 4)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
     }
 }
 
@@ -61,49 +69,101 @@ struct MetricBadge: View {
     let color: Color
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: AppSpacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(color)
-                .padding(10)
-                .background(Circle().fill(color.opacity(0.15)))
+                .padding(AppSpacing.sm)
+                .background(Circle().fill(color.opacity(0.12)))
 
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundColor(.primary)
+                .font(AppTypography.numberSmall)
+                .foregroundColor(AppColors.textPrimary)
 
             Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.secondary)
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
         }
-        .padding(12)
+        .padding(AppSpacing.sm)
         .frame(maxWidth: .infinity)
-        .background(.regularMaterial)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(.systemFill), lineWidth: 0.5)
-        )
+        .background(AppColors.secondaryBackground)
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
     }
 }
 
-// EmptyStateViews.swift
+// MARK: - Empty State Views
 struct EmptyBookmarksView: View {
+    var onStartReviewing: (() -> Void)?
+
     var body: some View {
-        ContentUnavailableView(
-            "No Bookmarks",
-            systemImage: "bookmark.slash",
-            description: Text("Photos you bookmark will appear here")
-        )
+        VStack(spacing: AppSpacing.lg) {
+            ZStack {
+                Circle()
+                    .fill(AppColors.bookmark.opacity(0.12))
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "bookmark.slash")
+                    .font(.system(size: 44))
+                    .foregroundColor(AppColors.bookmark.opacity(0.6))
+            }
+
+            VStack(spacing: AppSpacing.xs) {
+                Text("No Bookmarks Yet")
+                    .font(AppTypography.headlineMedium)
+                    .foregroundColor(AppColors.textPrimary)
+
+                Text("Photos you bookmark while reviewing will appear here")
+                    .font(AppTypography.bodySmall)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.xl)
+            }
+
+            if let action = onStartReviewing {
+                Button(action: action) {
+                    HStack(spacing: AppSpacing.xs) {
+                        Image(systemName: "photo.stack")
+                        Text("Start Reviewing")
+                    }
+                    .font(AppTypography.button)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, AppSpacing.lg)
+                    .padding(.vertical, AppSpacing.sm)
+                    .background(AppColors.bookmarkGradient)
+                    .clipShape(Capsule())
+                }
+                .padding(.top, AppSpacing.sm)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 struct EmptyTrashView: View {
     var body: some View {
-        ContentUnavailableView(
-            "Trash Empty",
-            systemImage: "trash.slash",
-            description: Text("Deleted photos will appear here for 30 days")
-        )
+        VStack(spacing: AppSpacing.lg) {
+            ZStack {
+                Circle()
+                    .fill(AppColors.success.opacity(0.12))
+                    .frame(width: 100, height: 100)
+
+                Image(systemName: "trash.slash")
+                    .font(.system(size: 44))
+                    .foregroundColor(AppColors.success.opacity(0.6))
+            }
+
+            VStack(spacing: AppSpacing.xs) {
+                Text("Trash is Empty")
+                    .font(AppTypography.headlineMedium)
+                    .foregroundColor(AppColors.textPrimary)
+
+                Text("Photos you delete will appear here for 30 days before being permanently removed")
+                    .font(AppTypography.bodySmall)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.xl)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

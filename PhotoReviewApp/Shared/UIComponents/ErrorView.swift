@@ -11,24 +11,27 @@ struct ErrorView: View {
     let retryAction: () -> Void
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: AppSpacing.sectionSpacing) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 60))
-                .foregroundColor(.red)
-            
+                .foregroundStyle(AppColors.deleteGradient)
+
             Text("Something Went Wrong")
-                .font(.title2)
-            
+                .font(AppTypography.headlineLarge)
+                .foregroundColor(AppColors.textPrimary)
+
             Text(error.localizedDescription)
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(AppTypography.bodySmall)
+                .foregroundColor(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
-            
+
             Button("Try Again") {
                 retryAction()
             }
+            .font(AppTypography.button)
             .buttonStyle(.borderedProminent)
+            .tint(AppColors.primary)
         }
-        .padding()
+        .padding(AppSpacing.lg)
     }
 }

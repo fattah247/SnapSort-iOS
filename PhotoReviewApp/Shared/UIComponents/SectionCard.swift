@@ -7,12 +7,14 @@
 
 import SwiftUI
 
-/// A styled “card” container for a settings section—with a header bar and content area.
+/// A styled "card" container for a settings section—with a header bar and content area.
 struct SectionCard<Content: View>: View {
     let title: String
     let icon: String
     let color: Color
     let content: () -> Content
+
+    @State private var isAppearing = false
 
     init(
         title: String,
@@ -29,31 +31,45 @@ struct SectionCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(color)
-                    .frame(width: 24, alignment: .center)
-                    .accessibilityHidden(true)
+            HStack(spacing: AppSpacing.sm) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: AppSpacing.radiusSmall, style: .continuous)
+                        .fill(color.opacity(0.12))
+                        .frame(width: 32, height: 32)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(color)
+                }
+                .accessibilityHidden(true)
+
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .font(AppTypography.headlineSmall)
+                    .foregroundColor(AppColors.textPrimary)
+
                 Spacer()
             }
-            .padding(16)
-            .background(Color(.secondarySystemGroupedBackground))
+            .padding(AppSpacing.md)
+            .background(AppColors.secondaryBackground)
 
             // Content
             content()
-                .padding(16)
-                .background(Color(.tertiarySystemGroupedBackground))
+                .padding(AppSpacing.md)
+                .background(AppColors.cardBackground)
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(AppColors.secondaryBackground)
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
         )
-        .shadow(color: .black.opacity(0.03), radius: 8, y: 2)
+        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        .opacity(isAppearing ? 1 : 0)
+        .offset(y: isAppearing ? 0 : 10)
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                isAppearing = true
+            }
+        }
     }
 }

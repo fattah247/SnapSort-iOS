@@ -27,16 +27,16 @@ struct SettingRow<Content: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: AppSpacing.md) {
             Image(systemName: icon)
-                .font(.body.weight(.medium))
+                .font(AppTypography.bodyMedium.weight(.medium))
                 .foregroundColor(iconColor)
-                .frame(width: 24, alignment: .center)
+                .frame(width: AppSpacing.iconSize, alignment: .center)
                 .accessibilityHidden(true)
 
             Text(title)
-                .font(.body)
-                .foregroundColor(.primary)
+                .font(AppTypography.bodyMedium)
+                .foregroundColor(AppColors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             trailingContent

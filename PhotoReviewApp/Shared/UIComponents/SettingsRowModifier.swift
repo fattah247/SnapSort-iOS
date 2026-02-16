@@ -10,9 +10,9 @@ import SwiftUI
 extension View {
     func settingsRow() -> some View {
         self
-            .padding()
-            .background(Color(.secondarySystemBackground))
-            .cornerRadius(10)
-            .shadow(radius: 1)
+            .padding(AppSpacing.md)
+            .background(AppColors.secondaryBackground)
+            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusSmall, style: .continuous))
+            .appShadow(AppSpacing.shadowSmall)
     }
 }

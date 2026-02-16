@@ -10,26 +10,30 @@ struct EmptyStateView: View {
     @EnvironmentObject var viewModel: ReviewViewModel
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: AppSpacing.sectionSpacing) {
             Image(systemName: "photo.on.rectangle.angled")
                 .font(.system(size: 60))
+                .foregroundStyle(AppColors.primaryGradient)
                 .symbolRenderingMode(.hierarchical)
-            
+
             Text("All Caught Up!")
-                .font(.title2.weight(.semibold))
-            
+                .font(AppTypography.headlineLarge)
+                .foregroundColor(AppColors.textPrimary)
+
             Text("You've reviewed all available photos")
-                .foregroundColor(.secondary)
-            
+                .font(AppTypography.bodyMedium)
+                .foregroundColor(AppColors.textSecondary)
+
             Button {
                 Task { await viewModel.loadInitialPhotos() }
             } label: {
                 Label("Load More", systemImage: "arrow.clockwise")
-                    .font(.headline)
+                    .font(AppTypography.button)
             }
             .buttonStyle(.borderedProminent)
+            .tint(AppColors.primary)
         }
-        .padding()
+        .padding(AppSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

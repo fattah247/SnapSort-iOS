@@ -37,7 +37,7 @@ struct PhotoDetailView: View {
             closeButton
         }
         .task { await loadFullImage() }
-        .background(.black)
+        .background(Color.black)
         .ignoresSafeArea()
     }
     
@@ -49,15 +49,16 @@ struct PhotoDetailView: View {
                     Text("Size: \(asset.fileSize.formatted(.byteCount(style: .file)))")
                     Text("Dimensions: \(asset.pixelWidth)x\(asset.pixelHeight)")
                 }
-                .font(.caption)
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
                 .transition(.move(edge: .top))
             }
         }
-        .padding()
+        .padding(AppSpacing.md)
         .background(.ultraThinMaterial)
-        .cornerRadius(8)
-        .padding()
-        .animation(.spring(), value: showMetadata)
+        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusSmall, style: .continuous))
+        .padding(AppSpacing.md)
+        .animation(.appSpring, value: showMetadata)
     }
     
     private var closeButton: some View {
@@ -73,9 +74,14 @@ struct PhotoDetailView: View {
     }
     
     private func loadFullImage() async {
-        image = await photoService.loadImage(
-            for: asset,
-            size: PHImageManagerMaximumSize
+        // Use screen-scale-aware size instead of PHImageManagerMaximumSize
+        // which would load the full raw image (~185MB for modern photos)
+        let screenScale = await MainActor.run { UIScreen.main.scale }
+        let screenSize = await MainActor.run { UIScreen.main.bounds.size }
+        let targetSize = CGSize(
+            width: screenSize.width * screenScale,
+            height: screenSize.height * screenScale
         )
+        image = await photoService.loadImage(for: asset, size: targetSize)
     }
 }

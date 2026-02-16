@@ -10,17 +10,17 @@ import SwiftUI
 struct NeumorphicButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .padding()
+            .padding(AppSpacing.md)
             .background(
                 Group {
                     if configuration.isPressed {
                         Color(.systemGray5)
                     } else {
-                        Color(.systemBackground)
+                        AppColors.cardBackground
                     }
                 }
             )
-            .cornerRadius(12)
-            .shadow(color: .black.opacity(0.1), radius: configuration.isPressed ? 1 : 4, x: 2, y: 2)
+            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
+            .appShadow(configuration.isPressed ? AppSpacing.shadowSmall : AppSpacing.shadowMedium)
     }
 }
