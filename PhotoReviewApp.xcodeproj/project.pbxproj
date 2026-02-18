@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A1B2C3D40001000000000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40002000000000001 /* Sentry */; };
+		A1B2C3D40001000000000002 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40002000000000002 /* TelemetryDeck */; };
+		9C88CAC02D61BAD90071D30E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C88CAA12D61BA580071D30E /* WidgetKit.framework */; };
+		9C88CAC12D61BAD90071D30E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C88CAA32D61BA580071D30E /* SwiftUI.framework */; };
+		9C88CAD22D61BADA0071D30E /* PhotoReviewWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9C88CABF2D61BAD90071D30E /* PhotoReviewWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		9C2466D72D48AC6A00523334 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +29,72 @@
 			remoteGlobalIDString = 9C2466C42D48AC6900523334;
 			remoteInfo = PhotoReviewApp;
 		};
+		9C88CAD02D61BADA0071D30E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9C2466BD2D48AC6900523334 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9C88CABE2D61BAD90071D30E;
+			remoteInfo = PhotoReviewWidgetsExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9C88CAB62D61BA5A0071D30E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9C88CAD22D61BADA0071D30E /* PhotoReviewWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		9C2466C52D48AC6900523334 /* PhotoReviewApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PhotoReviewApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C2466D62D48AC6A00523334 /* PhotoReviewAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhotoReviewAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9C2466E02D48AC6A00523334 /* PhotoReviewAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PhotoReviewAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C88CAA12D61BA580071D30E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		9C88CAA32D61BA580071D30E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		9C88CABF2D61BAD90071D30E /* PhotoReviewWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PhotoReviewWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9C88CAD32D61BADA0071D30E /* Exceptions for "PhotoReviewWidgets" folder in "PhotoReviewWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9C88CABE2D61BAD90071D30E /* PhotoReviewWidgetsExtension */;
+		};
+		9C88CAD82D61BB3A0071D30E /* Exceptions for "PhotoReviewApp" folder in "PhotoReviewApp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				Widgets/PhotoReviewWidget.swift,
+			);
+			target = 9C2466C42D48AC6900523334 /* PhotoReviewApp */;
+		};
+		9C88CAD92D61BB3A0071D30E /* Exceptions for "PhotoReviewApp" folder in "PhotoReviewWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/Constants/Constants.swift,
+				Widgets/PhotoReviewWidget.swift,
+				Widgets/ReviewStatsWidget.swift,
+			);
+			target = 9C88CABE2D61BAD90071D30E /* PhotoReviewWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		9C2466C72D48AC6900523334 /* PhotoReviewApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C88CAD82D61BB3A0071D30E /* Exceptions for "PhotoReviewApp" folder in "PhotoReviewApp" target */,
+				9C88CAD92D61BB3A0071D30E /* Exceptions for "PhotoReviewApp" folder in "PhotoReviewWidgetsExtension" target */,
+			);
 			path = PhotoReviewApp;
 			sourceTree = "<group>";
 		};
@@ -45,6 +108,24 @@
 			path = PhotoReviewAppUITests;
 			sourceTree = "<group>";
 		};
+		9C357D482D50B39700C7A784 /* Supporting */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Supporting;
+			sourceTree = "<group>";
+		};
+		9C88CAA52D61BA580071D30E /* PhotoReviewWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PhotoReviewWidgets;
+			sourceTree = "<group>";
+		};
+		9C88CAC22D61BAD90071D30E /* PhotoReviewWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C88CAD32D61BADA0071D30E /* Exceptions for "PhotoReviewWidgets" folder in "PhotoReviewWidgetsExtension" target */,
+			);
+			path = PhotoReviewWidgets;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +133,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D40001000000000001 /* Sentry in Frameworks */,
+				A1B2C3D40001000000000002 /* TelemetryDeck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,15 +152,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9C88CABC2D61BAD90071D30E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C88CAC12D61BAD90071D30E /* SwiftUI.framework in Frameworks */,
+				9C88CAC02D61BAD90071D30E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		9C2466BC2D48AC6900523334 = {
 			isa = PBXGroup;
 			children = (
+				9C357D482D50B39700C7A784 /* Supporting */,
 				9C2466C72D48AC6900523334 /* PhotoReviewApp */,
 				9C2466D92D48AC6A00523334 /* PhotoReviewAppTests */,
 				9C2466E32D48AC6A00523334 /* PhotoReviewAppUITests */,
+				9C88CAA52D61BA580071D30E /* PhotoReviewWidgets */,
+				9C88CAC22D61BAD90071D30E /* PhotoReviewWidgets */,
+				9C88CAA02D61BA580071D30E /* Frameworks */,
 				9C2466C62D48AC6900523334 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,13 +184,42 @@
 				9C2466C52D48AC6900523334 /* PhotoReviewApp.app */,
 				9C2466D62D48AC6A00523334 /* PhotoReviewAppTests.xctest */,
 				9C2466E02D48AC6A00523334 /* PhotoReviewAppUITests.xctest */,
+				9C88CABF2D61BAD90071D30E /* PhotoReviewWidgetsExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		9C88CAA02D61BA580071D30E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9C88CAA12D61BA580071D30E /* WidgetKit.framework */,
+				9C88CAA32D61BA580071D30E /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A1B2C3D40003000000000001 /* SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = SwiftLint;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if which swiftlint > /dev/null; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed, install with: brew install swiftlint\"\nfi\n";
+		};
 		9C2466C42D48AC6900523334 /* PhotoReviewApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9C2466EA2D48AC6A00523334 /* Build configuration list for PBXNativeTarget "PhotoReviewApp" */;
@@ -102,16 +227,22 @@
 				9C2466C12D48AC6900523334 /* Sources */,
 				9C2466C22D48AC6900523334 /* Frameworks */,
 				9C2466C32D48AC6900523334 /* Resources */,
+				9C88CAB62D61BA5A0071D30E /* Embed Foundation Extensions */,
+				A1B2C3D40003000000000001 /* SwiftLint */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9C88CAD12D61BADA0071D30E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				9C2466C72D48AC6900523334 /* PhotoReviewApp */,
+				9C357D482D50B39700C7A784 /* Supporting */,
 			);
 			name = PhotoReviewApp;
 			packageProductDependencies = (
+				A1B2C3D40002000000000001 /* Sentry */,
+				A1B2C3D40002000000000002 /* TelemetryDeck */,
 			);
 			productName = PhotoReviewApp;
 			productReference = 9C2466C52D48AC6900523334 /* PhotoReviewApp.app */;
@@ -163,6 +294,28 @@
 			productReference = 9C2466E02D48AC6A00523334 /* PhotoReviewAppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		9C88CABE2D61BAD90071D30E /* PhotoReviewWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C88CAD42D61BADA0071D30E /* Build configuration list for PBXNativeTarget "PhotoReviewWidgetsExtension" */;
+			buildPhases = (
+				9C88CABB2D61BAD90071D30E /* Sources */,
+				9C88CABC2D61BAD90071D30E /* Frameworks */,
+				9C88CABD2D61BAD90071D30E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9C88CAC22D61BAD90071D30E /* PhotoReviewWidgets */,
+			);
+			name = PhotoReviewWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = PhotoReviewWidgetsExtension;
+			productReference = 9C88CABF2D61BAD90071D30E /* PhotoReviewWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -171,7 +324,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1620;
-				LastUpgradeCheck = 1620;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					9C2466C42D48AC6900523334 = {
 						CreatedOnToolsVersion = 16.2;
@@ -184,6 +337,9 @@
 						CreatedOnToolsVersion = 16.2;
 						TestTargetID = 9C2466C42D48AC6900523334;
 					};
+					9C88CABE2D61BAD90071D30E = {
+						CreatedOnToolsVersion = 16.2;
+					};
 				};
 			};
 			buildConfigurationList = 9C2466C02D48AC6900523334 /* Build configuration list for PBXProject "PhotoReviewApp" */;
@@ -195,6 +351,10 @@
 			);
 			mainGroup = 9C2466BC2D48AC6900523334;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1B2C3D40004000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				A1B2C3D40004000000000002 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9C2466C62D48AC6900523334 /* Products */;
 			projectDirPath = "";
@@ -203,6 +363,7 @@
 				9C2466C42D48AC6900523334 /* PhotoReviewApp */,
 				9C2466D52D48AC6A00523334 /* PhotoReviewAppTests */,
 				9C2466DF2D48AC6A00523334 /* PhotoReviewAppUITests */,
+				9C88CABE2D61BAD90071D30E /* PhotoReviewWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -223,6 +384,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9C2466DE2D48AC6A00523334 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C88CABD2D61BAD90071D30E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +421,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9C88CABB2D61BAD90071D30E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -265,6 +440,11 @@
 			isa = PBXTargetDependency;
 			target = 9C2466C42D48AC6900523334 /* PhotoReviewApp */;
 			targetProxy = 9C2466E12D48AC6A00523334 /* PBXContainerItemProxy */;
+		};
+		9C88CAD12D61BADA0071D30E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9C88CABE2D61BAD90071D30E /* PhotoReviewWidgetsExtension */;
+			targetProxy = 9C88CAD02D61BADA0071D30E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -303,7 +483,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6RYV8J9924;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -325,6 +507,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -364,7 +547,9 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6RYV8J9924;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -379,6 +564,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -391,12 +577,17 @@
 				CODE_SIGN_ENTITLEMENTS = PhotoReviewApp/PhotoReviewApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"PhotoReviewApp/Preview Content\"";
-				DEVELOPMENT_TEAM = 6RYV8J9924;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires access to your photo library to display and manage photos.";
+				INFOPLIST_FILE = PhotoReviewApp/Info.plist;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "\"This app requires access to add photos to your library so you can save your edited images and creations.\"";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"This app requires access to your photo library to allow you to review and manage your photos.\"";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -431,12 +622,17 @@
 				CODE_SIGN_ENTITLEMENTS = PhotoReviewApp/PhotoReviewApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"PhotoReviewApp/Preview Content\"";
-				DEVELOPMENT_TEAM = 6RYV8J9924;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "This app requires access to your photo library to display and manage photos.";
+				INFOPLIST_FILE = PhotoReviewApp/Info.plist;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "\"This app requires access to add photos to your library so you can save your edited images and creations.\"";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"This app requires access to your photo library to allow you to review and manage your photos.\"";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -469,7 +665,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6RYV8J9924;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
@@ -492,7 +688,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6RYV8J9924;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
@@ -514,7 +710,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6RYV8J9924;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
@@ -536,7 +732,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6RYV8J9924;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 15.2;
@@ -550,6 +746,63 @@
 				TARGETED_DEVICE_FAMILY = "1,2,7";
 				TEST_TARGET_NAME = PhotoReviewApp;
 				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+		9C88CAD52D61BADA0071D30E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PhotoReviewWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PhotoReviewWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.PhotoReviewApp.PhotoReviewWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9C88CAD62D61BADA0071D30E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PhotoReviewWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PhotoReviewWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.PhotoReviewApp.PhotoReviewWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -592,7 +845,48 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		9C88CAD42D61BADA0071D30E /* Build configuration list for PBXNativeTarget "PhotoReviewWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C88CAD52D61BADA0071D30E /* Debug */,
+				9C88CAD62D61BADA0071D30E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1B2C3D40004000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+		A1B2C3D40004000000000002 /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1B2C3D40002000000000001 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40004000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+		A1B2C3D40002000000000002 /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40004000000000002 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9C2466BD2D48AC6900523334 /* Project object */;
 }
