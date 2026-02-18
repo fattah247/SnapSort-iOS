@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Photos
 
 struct SmartAlbumGridView: View {
     @ObservedObject var viewModel: ReviewViewModel
@@ -20,6 +19,13 @@ struct SmartAlbumGridView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                // Analysis progress — show prominently at top when scanning
+                if let analysisService = viewModel.analysisService,
+                   analysisService.analysisProgress.isScanning {
+                    AnalysisProgressView(analysisService: analysisService)
+                        .padding(.horizontal, AppSpacing.md)
+                }
+
                 // People section
                 if !viewModel.peopleAlbums.isEmpty {
                     peopleSection
@@ -27,13 +33,6 @@ struct SmartAlbumGridView: View {
 
                 // Smart categories grid
                 smartCategoriesSection
-
-                // Analysis progress
-                if let analysisService = viewModel.analysisService,
-                   analysisService.analysisProgress.isScanning {
-                    AnalysisProgressView(analysisService: analysisService)
-                        .padding(.horizontal, AppSpacing.md)
-                }
             }
             .padding(.vertical, AppSpacing.sm)
         }
@@ -80,10 +79,12 @@ struct SmartAlbumGridView: View {
             .padding(.horizontal, AppSpacing.md)
 
             LazyVGrid(columns: columns, spacing: AppSpacing.sm) {
+                let isScanning = viewModel.analysisService?.analysisProgress.isScanning == true
                 ForEach(SmartCategory.allCases.filter { $0 != .people }) { category in
                     SmartAlbumCard(
                         category: category,
                         count: viewModel.smartCategoryCounts[category] ?? 0,
+                        isScanning: isScanning,
                         onTap: {
                             viewModel.selectSmartCategory(category)
                         }
@@ -100,9 +101,8 @@ struct SmartAlbumGridView: View {
 struct SmartAlbumCard: View {
     let category: SmartCategory
     let count: Int
+    var isScanning: Bool = false
     let onTap: () -> Void
-
-    @State private var isPressed = false
 
     var body: some View {
         Button {
@@ -127,9 +127,20 @@ struct SmartAlbumCard: View {
                         .foregroundColor(AppColors.textPrimary)
                         .lineLimit(1)
 
-                    Text("\(count) photos")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
+                    if count == 0 && isScanning {
+                        HStack(spacing: 4) {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 12, height: 12)
+                            Text("Scanning...")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
+                    } else {
+                        Text("\(count) photos")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
                 }
 
                 Spacer(minLength: 0)
