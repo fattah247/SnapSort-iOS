@@ -51,6 +51,15 @@ enum Constants {
         static let appID = "YOUR_TELEMETRY_APP_ID_HERE"  // Replace with your TelemetryDeck app ID
     }
 
+    enum PhotoLoading {
+        /// Max seconds to wait for a single iCloud image download before giving up
+        static let imageLoadTimeout: TimeInterval = 8
+        /// How many extra candidates to fetch so we can skip iCloud-only photos
+        static let candidateOvershootMultiplier = 3
+        /// Number of time buckets to sample from for variety (recent, mid, old, etc.)
+        static let randomTimeBuckets = 5
+    }
+
     enum Analysis {
         static let thumbnailSize: CGFloat = 300
         static let maxConcurrentAnalysis = 3
