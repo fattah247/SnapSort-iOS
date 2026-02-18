@@ -6,6 +6,7 @@
 //
 import Foundation
 import os.log
+import Sentry
 
 struct AppLogger {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "com.photoReviewApp"
@@ -29,4 +30,14 @@ struct AppLogger {
         subsystem: subsystem,
         category: "Analysis"
     )
+
+    // MARK: - Sentry Helpers
+
+    static func breadcrumb(category: String, message: String) {
+        CrashReportingService.addBreadcrumb(category: category, message: message)
+    }
+
+    static func captureError(_ error: Error) {
+        CrashReportingService.capture(error)
+    }
 }

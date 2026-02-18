@@ -43,6 +43,14 @@ enum Constants {
         static let host = "photoreview.com"
     }
 
+    enum Sentry {
+        static let dsn = "YOUR_SENTRY_DSN_HERE"  // Replace with your Sentry DSN
+    }
+
+    enum Telemetry {
+        static let appID = "YOUR_TELEMETRY_APP_ID_HERE"  // Replace with your TelemetryDeck app ID
+    }
+
     enum Analysis {
         static let thumbnailSize: CGFloat = 300
         static let maxConcurrentAnalysis = 3

@@ -50,17 +50,20 @@ final class CoreDataAnalyticsService: ObservableObject, AnalyticsServiceProtocol
         analyticsEntity?.totalStorageSaved += fileSize
         analyticsEntity?.totalDeleted += 1
         saveContext()
+        TelemetryService.send(.photoDeleted)
     }
-    
+
     func trackBookmark() {
         analyticsEntity?.totalBookmarked += 1
         saveContext()
+        TelemetryService.send(.photoBookmarked)
     }
-    
+
     func trackReview() {
         analyticsEntity?.totalReviewed += 1
         analyticsEntity?.currentStreak += 1
         saveContext()
+        TelemetryService.send(.photoReviewed)
     }
     
     func resetStreak() {

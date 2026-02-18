@@ -10,6 +10,8 @@ import CoreData
 import Photos
 import BackgroundTasks
 import OSLog
+import Sentry
+import TelemetryDeck
 
 @main
 struct PhotoReviewApp: App {
@@ -37,6 +39,9 @@ struct PhotoReviewApp: App {
     }
 
     init() {
+        CrashReportingService.start()
+        TelemetryService.start()
+
         let context = CoreDataManager.shared.viewContext
 
         let sharedPhotoService = PhotoLibraryService()
