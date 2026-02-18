@@ -6,7 +6,6 @@
 //
 import Photos
 import Combine
-import CoreData
 import SwiftUI
 import OSLog
 
@@ -18,6 +17,7 @@ protocol PhotoLibraryServiceProtocol: ObservableObject {
     func fetchAssets(options: FetchOptions) async throws -> [PHAsset]
     func fetchRandomAssets(count: Int, excluding: Set<String>) async -> [PHAsset]
     func loadImage(for asset: PHAsset, size: CGSize) async -> UIImage?
+    func loadLocalImage(for asset: PHAsset, size: CGSize) async -> UIImage?
     func deleteAssets(_ assets: [PHAsset]) async throws
     func getTotalPhotoCount() -> Int
 }
@@ -27,7 +27,6 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
     private let imageManager = PHCachingImageManager()
 
     init() {
-        // Allow iCloud photo downloads
         imageManager.allowsCachingHighQualityImages = true
     }
 
@@ -54,12 +53,11 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
                 fetchOptions.sortDescriptors = sortDescriptors
                 fetchOptions.fetchLimit = limit
                 fetchOptions.includeHiddenAssets = includeHidden
-
-                // Include ALL source types (local, iCloud, iTunes sync)
                 fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
 
                 let result = PHAsset.fetchAssets(with: mediaType, options: fetchOptions)
                 var assets = [PHAsset]()
+                assets.reserveCapacity(result.count)
                 result.enumerateObjects { asset, _, _ in
                     assets.append(asset)
                 }
@@ -67,6 +65,8 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
             }
         }
     }
+
+    // MARK: - Time-Spread Random Fetch
 
     func fetchRandomAssets(count: Int, excluding: Set<String>) async -> [PHAsset] {
         await withCheckedContinuation { continuation in
@@ -82,25 +82,37 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
                     return
                 }
 
-                // Pick random indices from the fetch result without loading everything
+                // Split the library into time buckets for variety
+                let bucketCount = min(Constants.PhotoLoading.randomTimeBuckets, max(1, totalCount / count))
+                let bucketSize = totalCount / bucketCount
+                let photosPerBucket = max(1, count / bucketCount)
+
                 var selected = [PHAsset]()
                 var usedIndices = Set<Int>()
-                // Try up to 3x the requested count to account for exclusions
-                let maxAttempts = min(count * 3, totalCount)
-                var attempts = 0
 
-                while selected.count < count && attempts < maxAttempts {
-                    let randomIndex = Int.random(in: 0..<totalCount)
-                    guard !usedIndices.contains(randomIndex) else {
-                        attempts += 1
-                        continue
-                    }
-                    usedIndices.insert(randomIndex)
-                    attempts += 1
+                for bucket in 0..<bucketCount {
+                    guard selected.count < count else { break }
 
-                    let asset = result.object(at: randomIndex)
-                    if !excluding.contains(asset.localIdentifier) {
-                        selected.append(asset)
+                    let bucketStart = bucket * bucketSize
+                    let bucketEnd = (bucket == bucketCount - 1) ? totalCount : bucketStart + bucketSize
+                    guard bucketStart < bucketEnd else { continue }
+
+                    let needed = min(photosPerBucket + (bucket == bucketCount - 1 ? count - selected.count : 0), count - selected.count)
+                    var bucketAttempts = 0
+                    let maxBucketAttempts = needed * 4
+
+                    while selected.count < count && bucketAttempts < maxBucketAttempts {
+                        let randomIndex = Int.random(in: bucketStart..<bucketEnd)
+                        bucketAttempts += 1
+
+                        guard !usedIndices.contains(randomIndex) else { continue }
+                        usedIndices.insert(randomIndex)
+
+                        let asset = result.object(at: randomIndex)
+                        if !excluding.contains(asset.localIdentifier) {
+                            selected.append(asset)
+                            if selected.count >= count { break }
+                        }
                     }
                 }
 
@@ -109,39 +121,18 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
         }
     }
 
+    // MARK: - Image Loading
+
+    /// Loads an image with iCloud download allowed, but bounded by a timeout.
     func loadImage(for asset: PHAsset, size: CGSize) async -> UIImage? {
-        await withCheckedContinuation { continuation in
-            let requestOptions = PHImageRequestOptions()
-            requestOptions.isNetworkAccessAllowed = true // Allow iCloud download
-            requestOptions.deliveryMode = .highQualityFormat
-            requestOptions.resizeMode = .exact
-            requestOptions.isSynchronous = false
-
-            // Use a flag to ensure we only resume once (requestImage can call handler multiple times)
-            var hasResumed = false
-            let resumeLock = NSLock()
-
-            imageManager.requestImage(
-                for: asset,
-                targetSize: size,
-                contentMode: .aspectFill,
-                options: requestOptions
-            ) { image, info in
-                resumeLock.lock()
-                defer { resumeLock.unlock() }
-
-                // Check if this is the final image (not degraded)
-                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-
-                // Resume only once with the best available image
-                if !hasResumed {
-                    if !isDegraded || image != nil {
-                        hasResumed = true
-                        continuation.resume(returning: image)
-                    }
-                }
-            }
+        await withTimeoutImage(seconds: Constants.PhotoLoading.imageLoadTimeout) {
+            await self.requestImage(for: asset, size: size, allowNetwork: true, deliveryMode: .highQualityFormat)
         }
+    }
+
+    /// Loads a locally-cached image only — returns nil instantly if the photo is iCloud-only.
+    func loadLocalImage(for asset: PHAsset, size: CGSize) async -> UIImage? {
+        await requestImage(for: asset, size: size, allowNetwork: false, deliveryMode: .fastFormat)
     }
 
     func deleteAssets(_ assets: [PHAsset]) async throws {
@@ -155,6 +146,67 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
         fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
         let result = PHAsset.fetchAssets(with: .image, options: fetchOptions)
         return result.count
+    }
+
+    // MARK: - Private
+
+    private func requestImage(
+        for asset: PHAsset,
+        size: CGSize,
+        allowNetwork: Bool,
+        deliveryMode: PHImageRequestOptionsDeliveryMode
+    ) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            let options = PHImageRequestOptions()
+            options.isNetworkAccessAllowed = allowNetwork
+            options.deliveryMode = deliveryMode
+            options.resizeMode = .fast
+            options.isSynchronous = false
+
+            var hasResumed = false
+            let resumeLock = NSLock()
+
+            imageManager.requestImage(
+                for: asset,
+                targetSize: size,
+                contentMode: .aspectFill,
+                options: options
+            ) { image, info in
+                resumeLock.lock()
+                defer { resumeLock.unlock() }
+
+                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+
+                if !hasResumed {
+                    if !isDegraded || image != nil {
+                        hasResumed = true
+                        continuation.resume(returning: image)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Races an async image load against a timeout.
+    private func withTimeoutImage(seconds: TimeInterval, operation: @escaping () async -> UIImage?) async -> UIImage? {
+        await withTaskGroup(of: UIImage?.self) { group in
+            group.addTask { await operation() }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return nil
+            }
+
+            // Return the first non-nil result, or nil if timeout wins
+            for await result in group {
+                if let image = result {
+                    group.cancelAll()
+                    return image
+                }
+            }
+
+            group.cancelAll()
+            return nil
+        }
     }
 }
 

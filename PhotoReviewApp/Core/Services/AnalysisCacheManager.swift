@@ -7,7 +7,6 @@
 
 import CoreData
 import Photos
-import OSLog
 
 final class AnalysisCacheManager {
     private let context: NSManagedObjectContext
@@ -71,12 +70,19 @@ final class AnalysisCacheManager {
     }
 
     func getCacheStatistics() -> (total: Int, byCategory: [SmartCategory: Int]) {
-        let results = getAllCachedResults()
         var byCategory: [SmartCategory: Int] = [:]
+
+        // Use CoreData count queries to avoid loading all entities into memory
+        let totalRequest = PhotoAnalysisEntity.fetchRequest()
+        let total = (try? context.count(for: totalRequest)) ?? 0
+
         for category in SmartCategory.allCases {
-            byCategory[category] = results.filter { $0.categories.contains(category) }.count
+            let request = PhotoAnalysisEntity.fetchRequest()
+            request.predicate = NSPredicate(format: "ANY categories CONTAINS %@", category.rawValue)
+            byCategory[category] = (try? context.count(for: request)) ?? 0
         }
-        return (total: results.count, byCategory: byCategory)
+
+        return (total: total, byCategory: byCategory)
     }
 
     // MARK: - Write

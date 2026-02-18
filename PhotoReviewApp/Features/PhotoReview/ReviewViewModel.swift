@@ -175,6 +175,10 @@ final class ReviewViewModel: ObservableObject {
         let trashedIds = Set(trashManager.trashedAssets.map { $0.localIdentifier })
         let excludedIds = reviewedPhotoIds.union(bookmarkedIds).union(trashedIds)
 
+        // Overshoot: fetch more candidates than batchSize so we can skip
+        // iCloud-only photos that fail to load and still fill the queue.
+        let candidateLimit = batchSize * Constants.PhotoLoading.candidateOvershootMultiplier
+
         do {
             let assetsToProcess: [PHAsset]
 
@@ -182,7 +186,7 @@ final class ReviewViewModel: ObservableObject {
             case .library(let category):
                 assetsToProcess = try await fetchLibraryAssets(
                     category: category,
-                    limit: batchSize,
+                    limit: candidateLimit,
                     excludedIds: excludedIds,
                     bookmarkedIds: bookmarkedIds,
                     trashedIds: trashedIds
@@ -191,7 +195,7 @@ final class ReviewViewModel: ObservableObject {
             case .smart(let category):
                 assetsToProcess = await fetchSmartAssets(
                     category: category,
-                    limit: batchSize,
+                    limit: candidateLimit,
                     excludedIds: excludedIds
                 )
 
@@ -199,7 +203,7 @@ final class ReviewViewModel: ObservableObject {
                 assetsToProcess = fetchPersonAssets(
                     personId: id,
                     personName: name,
-                    limit: batchSize,
+                    limit: candidateLimit,
                     excludedIds: excludedIds
                 )
             }
@@ -373,23 +377,31 @@ final class ReviewViewModel: ObservableObject {
         sortOption: PhotoSortOption,
         append: Bool = false
     ) async {
-        let photos = await withTaskGroup(of: Photo?.self) { group in
-            var result = [Photo]()
-            var iterator = assets.makeIterator()
+        let targetCount = batchSize
+        var photos = [Photo]()
+        var iterator = assets.makeIterator()
 
+        // Use a task group with bounded concurrency — process candidates
+        // until we have enough successfully-loaded photos or run out of assets.
+        await withTaskGroup(of: Photo?.self) { group in
             for _ in 0..<min(maxConcurrentImageLoads, assets.count) {
-                if let asset = iterator.next() {
-                    group.addTask { [weak self] in
-                        guard let self else { return nil }
-                        return await self.processAsset(asset)
-                    }
+                guard let asset = iterator.next() else { break }
+                group.addTask { [weak self] in
+                    guard let self else { return nil }
+                    return await self.processAsset(asset)
                 }
             }
 
             for await photo in group {
                 if let photo {
-                    result.append(photo)
+                    photos.append(photo)
                 }
+                // Stop once we have enough
+                guard photos.count < targetCount else {
+                    group.cancelAll()
+                    break
+                }
+                // Feed the next candidate
                 if let asset = iterator.next() {
                     group.addTask { [weak self] in
                         guard let self else { return nil }
@@ -397,7 +409,6 @@ final class ReviewViewModel: ObservableObject {
                     }
                 }
             }
-            return result
         }
 
         for photo in photos {
@@ -418,15 +429,24 @@ final class ReviewViewModel: ObservableObject {
         reviewedPhotoIds.removeAll()
     }
 
+    /// Loads a single photo using a local-first strategy:
+    /// 1. Try device-cached image (instant, no iCloud download)
+    /// 2. Fall back to network load with timeout
+    /// Returns nil if both fail (iCloud-only photo on slow connection — skip it)
     private func processAsset(_ asset: PHAsset) async -> Photo? {
-        async let imageTask = photoService.loadImage(
-            for: asset,
-            size: CGSize(width: 800, height: 800)
-        )
-        async let fileSizeTask = asset.fetchFileSize()
+        let imageSize = CGSize(width: 800, height: 800)
 
-        guard let image = await imageTask else { return nil }
-        let fileSize = await fileSizeTask
+        // Fast path: try locally-cached image first (no network)
+        var image = await photoService.loadLocalImage(for: asset, size: imageSize)
+
+        // Slow path: allow iCloud download with timeout
+        if image == nil {
+            image = await photoService.loadImage(for: asset, size: imageSize)
+        }
+
+        guard let image else { return nil }
+
+        let fileSize = await asset.fetchFileSize()
 
         let analysisResult = analysisService?.cacheManager.getCachedResult(
             assetIdentifier: asset.localIdentifier
