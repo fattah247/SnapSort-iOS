@@ -6,8 +6,6 @@
 //
 import SwiftUI
 import Photos
-import CoreData
-import OSLog
 
 struct ReviewView: View {
     @StateObject private var viewModel: ReviewViewModel
@@ -72,7 +70,7 @@ struct ReviewView: View {
                         smartSwipeHeader
                     }
 
-                    contentSwitch(viewModel: viewModel)
+                    contentSwitch
                         .frame(maxHeight: .infinity)
                         .transition(.opacity.combined(with: .scale(0.95)))
                 } else {
@@ -143,6 +141,17 @@ struct ReviewView: View {
         .onChange(of: viewModel.reviewMode) { _, newMode in
             if newMode == .smart {
                 viewModel.loadSmartData()
+            }
+        }
+        .onReceive(
+            // Refresh smart counts every 5 seconds while scan is running
+            Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+        ) { _ in
+            if viewModel.reviewMode == .smart,
+               !viewModel.isInSmartSwipeMode,
+               let analysisService = viewModel.analysisService,
+               analysisService.analysisProgress.isScanning {
+                viewModel.refreshSmartCounts()
             }
         }
     }
@@ -296,7 +305,7 @@ struct ReviewView: View {
 
     // MARK: - Content Switch
     @ViewBuilder
-    private func contentSwitch(viewModel: ReviewViewModel) -> some View {
+    private var contentSwitch: some View {
         switch viewModel.state {
         case .idle:
             loadingPlaceholder
@@ -306,15 +315,15 @@ struct ReviewView: View {
             if photos.isEmpty {
                 emptyStateView
             } else {
-                contentView(viewModel: viewModel, photos: photos)
+                cardStackView(photos: photos)
             }
         case .error(let error):
-            errorView(error: error, viewModel: viewModel)
+            errorView(error: error)
         }
     }
 
-    // MARK: - Content View
-    private func contentView(viewModel: ReviewViewModel, photos: [Photo]) -> some View {
+    // MARK: - Card Stack View
+    private func cardStackView(photos: [Photo]) -> some View {
         GeometryReader { geometry in
             ZStack {
                 ForEach(photos) { photo in
@@ -332,6 +341,26 @@ struct ReviewView: View {
                         removal: .scale(scale: 0.8).combined(with: .opacity)
                     ))
                     .zIndex(Double(photos.count - (photos.firstIndex(of: photo) ?? 0)))
+                }
+
+                // Loading-more indicator at the bottom
+                if viewModel.isLoadingMore {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: AppSpacing.xs) {
+                            ProgressView()
+                                .tint(AppColors.primary)
+                            Text("Loading more...")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .padding(.vertical, AppSpacing.xs)
+                        .padding(.horizontal, AppSpacing.sm)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.isLoadingMore)
+                    .zIndex(Double(photos.count + 1))
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
@@ -366,7 +395,7 @@ struct ReviewView: View {
     }
 
     // MARK: - Error View
-    private func errorView(error: Error, viewModel: ReviewViewModel) -> some View {
+    private func errorView(error: Error) -> some View {
         VStack(spacing: AppSpacing.lg) {
             Spacer()
             ZStack {

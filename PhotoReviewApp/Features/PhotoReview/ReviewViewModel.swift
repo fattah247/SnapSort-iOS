@@ -6,7 +6,6 @@
 //
 import SwiftUI
 import Photos
-import CoreData
 import OSLog
 
 @MainActor
@@ -28,6 +27,9 @@ final class ReviewViewModel: ObservableObject {
     @Published var peopleAlbums: [PersonAlbum] = []
     @Published var isInSmartSwipeMode = false
 
+    /// Indicates an append-load is in progress so the UI can show a loading indicator
+    @Published private(set) var isLoadingMore = false
+
     private let settings: SettingsViewModel
     private let photoService: any PhotoLibraryServiceProtocol
     private let haptic: any HapticServiceProtocol
@@ -39,8 +41,13 @@ final class ReviewViewModel: ObservableObject {
     let peopleService: PeopleService?
     private var currentTask: Task<Void, Never>?
 
-    /// Fixed batch size for loading photos
+    // MARK: - Constants
+
     private let batchSize = 10
+    private let maxConcurrentImageLoads = 5
+    private let autoLoadThreshold = 3
+    private let fetchLimitMultiplier = 3
+    private let minimumFetchLimit = 50
 
     // Track reviewed photo IDs to avoid showing them again in this session
     private var reviewedPhotoIds = Set<String>()
@@ -92,6 +99,7 @@ final class ReviewViewModel: ObservableObject {
         reviewMode = .library
         isInSmartSwipeMode = false
         reviewedPhotoIds.removeAll()
+        TelemetryService.send(.categorySelected(String(describing: category)))
         Task { await loadInitialPhotos() }
     }
 
@@ -101,6 +109,7 @@ final class ReviewViewModel: ObservableObject {
         selectedCategory = .smart(category)
         isInSmartSwipeMode = true
         reviewedPhotoIds.removeAll()
+        TelemetryService.send(.smartCategoryUsed(String(describing: category)))
         Task { await loadInitialPhotos() }
     }
 
@@ -121,23 +130,28 @@ final class ReviewViewModel: ObservableObject {
     // MARK: - Smart Data Loading
 
     func loadSmartData() {
-        guard let smartCategoryService, let peopleService else { return }
+        guard smartCategoryService != nil, peopleService != nil else { return }
 
         Task {
-            let counts = smartCategoryService.getCategoryCounts()
-            let albums = peopleService.fetchPeopleAlbums()
-
-            await MainActor.run {
-                self.smartCategoryCounts = counts
-                self.peopleAlbums = albums
-            }
+            await updateSmartCounts()
+            await triggerForegroundScanIfNeeded()
         }
+    }
+
+    /// Refreshes smart category counts from the analysis cache
+    func refreshSmartCounts() {
+        guard smartCategoryService != nil, peopleService != nil else { return }
+        Task { await updateSmartCounts() }
     }
 
     /// Loads more photos to append to the existing queue
     func loadMorePhotos() async {
+        guard !isLoadingMore else { return }
+        isLoadingMore = true
+
         cancelCurrentTask()
         currentTask = Task {
+            defer { isLoadingMore = false }
             await processPhotos(appendToExisting: true)
         }
     }
@@ -157,9 +171,6 @@ final class ReviewViewModel: ObservableObject {
             state = .loading
         }
 
-        let limit = batchSize
-
-        // Build exclusion set: reviewed + bookmarked + trashed
         let bookmarkedIds = Set(bookmarkManager.bookmarkedAssets.map { $0.localIdentifier })
         let trashedIds = Set(trashManager.trashedAssets.map { $0.localIdentifier })
         let excludedIds = reviewedPhotoIds.union(bookmarkedIds).union(trashedIds)
@@ -171,7 +182,7 @@ final class ReviewViewModel: ObservableObject {
             case .library(let category):
                 assetsToProcess = try await fetchLibraryAssets(
                     category: category,
-                    limit: limit,
+                    limit: batchSize,
                     excludedIds: excludedIds,
                     bookmarkedIds: bookmarkedIds,
                     trashedIds: trashedIds
@@ -180,7 +191,7 @@ final class ReviewViewModel: ObservableObject {
             case .smart(let category):
                 assetsToProcess = await fetchSmartAssets(
                     category: category,
-                    limit: limit,
+                    limit: batchSize,
                     excludedIds: excludedIds
                 )
 
@@ -188,7 +199,7 @@ final class ReviewViewModel: ObservableObject {
                 assetsToProcess = fetchPersonAssets(
                     personId: id,
                     personName: name,
-                    limit: limit,
+                    limit: batchSize,
                     excludedIds: excludedIds
                 )
             }
@@ -200,16 +211,22 @@ final class ReviewViewModel: ObservableObject {
                 return
             }
 
-            await processAndLoadPhotos(assetsToProcess, sortOption: settings.sortOption, append: appendToExisting)
+            await processAndLoadPhotos(
+                assetsToProcess,
+                sortOption: settings.sortOption,
+                append: appendToExisting
+            )
 
         } catch {
-            if !appendToExisting {
+            if appendToExisting {
+                AppLogger.general.error("Failed to load more photos: \(error.localizedDescription, privacy: .public)")
+            } else {
                 state = .error(error)
             }
         }
     }
 
-    // MARK: - Library Asset Fetching (existing logic)
+    // MARK: - Library Asset Fetching
 
     private func fetchLibraryAssets(
         category: PhotoCategory,
@@ -221,75 +238,98 @@ final class ReviewViewModel: ObservableObject {
         let sortOption = settings.sortOption
 
         if sortOption == .random {
-            if category == .all {
-                var result = await photoService.fetchRandomAssets(
-                    count: limit,
-                    excluding: excludedIds
-                )
-                if result.isEmpty && !reviewedPhotoIds.isEmpty {
-                    AppLogger.general.info("Clearing review history - retrying random fetch")
-                    reviewedPhotoIds.removeAll()
-                    let retryExcluded = bookmarkedIds.union(trashedIds)
-                    result = await photoService.fetchRandomAssets(
-                        count: limit,
-                        excluding: retryExcluded
-                    )
-                }
-                return result
-            } else {
-                let excluded = excludedIds
-                var result = await Task.detached {
-                    PhotoCategoryService.shared.fetchRandomAssets(
-                        category: category,
-                        count: limit,
-                        excluding: excluded
-                    )
-                }.value
-                if result.isEmpty && !reviewedPhotoIds.isEmpty {
-                    AppLogger.general.info("Clearing review history - retrying category random fetch")
-                    reviewedPhotoIds.removeAll()
-                    let retryExcluded = bookmarkedIds.union(trashedIds)
-                    result = await Task.detached {
-                        PhotoCategoryService.shared.fetchRandomAssets(
-                            category: category,
-                            count: limit,
-                            excluding: retryExcluded
-                        )
-                    }.value
-                }
-                return result
-            }
-        } else {
-            let fetchLimit = max(limit * 3, 50)
-
-            let allAssets: [PHAsset]
-            if category == .all {
-                allAssets = try await photoService.fetchAssets(options: .init(
-                    limit: fetchLimit,
-                    sortDescriptors: sortOption.sortDescriptors
-                ))
-            } else {
-                let sortDescriptors = sortOption.sortDescriptors
-                allAssets = await Task.detached {
-                    PhotoCategoryService.shared.fetchAssets(
-                        category: category,
-                        limit: fetchLimit,
-                        sortDescriptors: sortDescriptors
-                    )
-                }.value
-            }
-
-            var available = allAssets.filter { !excludedIds.contains($0.localIdentifier) }
-
-            if available.isEmpty && !allAssets.isEmpty {
-                AppLogger.general.info("Clearing review history - all photos in pool were reviewed")
-                reviewedPhotoIds.removeAll()
-                let retryExcluded = bookmarkedIds.union(trashedIds)
-                available = allAssets.filter { !retryExcluded.contains($0.localIdentifier) }
-            }
-
-            return Array(available.prefix(limit))
+            return await fetchRandomLibraryAssets(
+                category: category,
+                limit: limit,
+                excludedIds: excludedIds,
+                bookmarkedIds: bookmarkedIds,
+                trashedIds: trashedIds
+            )
         }
+
+        return try await fetchSortedLibraryAssets(
+            category: category,
+            limit: limit,
+            sortOption: sortOption,
+            excludedIds: excludedIds,
+            bookmarkedIds: bookmarkedIds,
+            trashedIds: trashedIds
+        )
+    }
+
+    private func fetchRandomLibraryAssets(
+        category: PhotoCategory,
+        limit: Int,
+        excludedIds: Set<String>,
+        bookmarkedIds: Set<String>,
+        trashedIds: Set<String>
+    ) async -> [PHAsset] {
+        var result: [PHAsset]
+
+        if category == .all {
+            result = await photoService.fetchRandomAssets(count: limit, excluding: excludedIds)
+        } else {
+            let excluded = excludedIds
+            result = await Task.detached {
+                PhotoCategoryService.shared.fetchRandomAssets(
+                    category: category, count: limit, excluding: excluded
+                )
+            }.value
+        }
+
+        guard result.isEmpty, !reviewedPhotoIds.isEmpty else { return result }
+
+        // Retry with cleared review history when all photos have been seen
+        AppLogger.general.info("Clearing review history — retrying random fetch")
+        reviewedPhotoIds.removeAll()
+        let retryExcluded = bookmarkedIds.union(trashedIds)
+
+        if category == .all {
+            return await photoService.fetchRandomAssets(count: limit, excluding: retryExcluded)
+        }
+
+        return await Task.detached {
+            PhotoCategoryService.shared.fetchRandomAssets(
+                category: category, count: limit, excluding: retryExcluded
+            )
+        }.value
+    }
+
+    private func fetchSortedLibraryAssets(
+        category: PhotoCategory,
+        limit: Int,
+        sortOption: PhotoSortOption,
+        excludedIds: Set<String>,
+        bookmarkedIds: Set<String>,
+        trashedIds: Set<String>
+    ) async throws -> [PHAsset] {
+        let fetchLimit = max(limit * fetchLimitMultiplier, minimumFetchLimit)
+
+        let allAssets: [PHAsset]
+        if category == .all {
+            allAssets = try await photoService.fetchAssets(options: .init(
+                limit: fetchLimit,
+                sortDescriptors: sortOption.sortDescriptors
+            ))
+        } else {
+            let sortDescriptors = sortOption.sortDescriptors
+            allAssets = await Task.detached {
+                PhotoCategoryService.shared.fetchAssets(
+                    category: category, limit: fetchLimit, sortDescriptors: sortDescriptors
+                )
+            }.value
+        }
+
+        var available = allAssets.filter { !excludedIds.contains($0.localIdentifier) }
+
+        if available.isEmpty && !allAssets.isEmpty {
+            AppLogger.general.info("Clearing review history — all photos in pool were reviewed")
+            reviewedPhotoIds.removeAll()
+            let retryExcluded = bookmarkedIds.union(trashedIds)
+            available = allAssets.filter { !retryExcluded.contains($0.localIdentifier) }
+        }
+
+        return Array(available.prefix(limit))
     }
 
     // MARK: - Smart Asset Fetching
@@ -328,13 +368,16 @@ final class ReviewViewModel: ObservableObject {
 
     // MARK: - Photo Loading
 
-    private func processAndLoadPhotos(_ assets: [PHAsset], sortOption: PhotoSortOption, append: Bool = false) async {
-        let maxConcurrent = 5
+    private func processAndLoadPhotos(
+        _ assets: [PHAsset],
+        sortOption: PhotoSortOption,
+        append: Bool = false
+    ) async {
         let photos = await withTaskGroup(of: Photo?.self) { group in
             var result = [Photo]()
             var iterator = assets.makeIterator()
 
-            for _ in 0..<min(maxConcurrent, assets.count) {
+            for _ in 0..<min(maxConcurrentImageLoads, assets.count) {
                 if let asset = iterator.next() {
                     group.addTask { [weak self] in
                         guard let self else { return nil }
@@ -344,7 +387,7 @@ final class ReviewViewModel: ObservableObject {
             }
 
             for await photo in group {
-                if let photo = photo {
+                if let photo {
                     result.append(photo)
                 }
                 if let asset = iterator.next() {
@@ -385,8 +428,9 @@ final class ReviewViewModel: ObservableObject {
         guard let image = await imageTask else { return nil }
         let fileSize = await fileSizeTask
 
-        // Attach cached analysis result if available
-        let analysisResult = analysisService?.cacheManager.getCachedResult(assetIdentifier: asset.localIdentifier)
+        let analysisResult = analysisService?.cacheManager.getCachedResult(
+            assetIdentifier: asset.localIdentifier
+        )
 
         return Photo(
             id: asset.localIdentifier,
@@ -419,46 +463,15 @@ final class ReviewViewModel: ObservableObject {
             }
         }
 
-        // Auto-load more photos when queue is getting low
-        if case .loaded(let photos) = state, photos.count <= 3 && !sessionTargetReached {
-            Task { await loadMorePhotos() }
-        }
-    }
-
-    private func performDeletion(_ photo: Photo) {
-        trashManager.addToTrash(assetIdentifier: photo.id)
-        analytics.trackDeletion(fileSize: photo.fileSize)
-        sessionStorageSaved += photo.fileSize
-        haptic.notify(.warning)
-        removePhoto(photo)
-
-        // Check if storage target reached
-        if sessionStorageSaved >= storageTarget {
-            sessionTargetReached = true
-        }
-    }
-
-    private func cancelCurrentTask() {
-        currentTask?.cancel()
-        currentTask = nil
-    }
-
-    private func removePhoto(_ photo: Photo) {
-        withAnimation(.spring()) {
-            state.removePhoto(photo)
-        }
+        autoLoadMoreIfNeeded()
     }
 
     func confirmDeletion(of photo: Photo?) {
-        guard let p = photo else { return }
+        guard let photo else { return }
         pendingDeletePhoto = nil
         showDeleteAlert = false
-        performDeletion(p)
-
-        // Auto-load more if queue low
-        if case .loaded(let photos) = state, photos.count <= 3 && !sessionTargetReached {
-            Task { await loadMorePhotos() }
-        }
+        performDeletion(photo)
+        autoLoadMoreIfNeeded()
     }
 
     func skipPhoto(_ photo: Photo) {
@@ -492,6 +505,60 @@ final class ReviewViewModel: ObservableObject {
             haptic.notify(.warning)
         }
     }
+
+    // MARK: - Private Helpers
+
+    private func performDeletion(_ photo: Photo) {
+        trashManager.addToTrash(assetIdentifier: photo.id)
+        analytics.trackDeletion(fileSize: photo.fileSize)
+        sessionStorageSaved += photo.fileSize
+        haptic.notify(.warning)
+        removePhoto(photo)
+
+        if sessionStorageSaved >= storageTarget {
+            sessionTargetReached = true
+            TelemetryService.send(.sessionTargetReached)
+        }
+    }
+
+    private func cancelCurrentTask() {
+        currentTask?.cancel()
+        currentTask = nil
+    }
+
+    private func removePhoto(_ photo: Photo) {
+        withAnimation(.spring()) {
+            state.removePhoto(photo)
+        }
+    }
+
+    /// Triggers an append-load when the photo queue is running low
+    private func autoLoadMoreIfNeeded() {
+        guard case .loaded(let photos) = state,
+              photos.count <= autoLoadThreshold,
+              !sessionTargetReached else { return }
+        Task { await loadMorePhotos() }
+    }
+
+    /// Fetches fresh counts and albums from the analysis cache
+    private func updateSmartCounts() async {
+        guard let smartCategoryService, let peopleService else { return }
+        let counts = smartCategoryService.getCategoryCounts()
+        let albums = peopleService.fetchPeopleAlbums()
+        smartCategoryCounts = counts
+        peopleAlbums = albums
+    }
+
+    /// Starts a foreground analysis scan if no photos have been analyzed yet
+    private func triggerForegroundScanIfNeeded() async {
+        let hasAnalyzedPhotos = smartCategoryCounts.values.contains { $0 > 0 }
+        guard !hasAnalyzedPhotos, let analysisService else { return }
+
+        analysisService.startBackgroundScan(
+            photoService: photoService,
+            excluding: Set<String>()
+        )
+    }
 }
 
 // MARK: - ViewState
@@ -508,7 +575,7 @@ extension ReviewViewModel {
             case (.idle, .idle), (.loading, .loading):
                 return true
             case (.loaded(let lhsPhotos), .loaded(let rhsPhotos)):
-                return lhsPhotos.map { $0.id } == rhsPhotos.map { $0.id }
+                return lhsPhotos.map(\.id) == rhsPhotos.map(\.id)
             case (.error, .error):
                 return true
             default:
