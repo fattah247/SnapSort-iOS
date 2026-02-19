@@ -160,7 +160,7 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
             let options = PHImageRequestOptions()
             options.isNetworkAccessAllowed = allowNetwork
             options.deliveryMode = deliveryMode
-            options.resizeMode = .fast
+            options.resizeMode = deliveryMode == .highQualityFormat ? .exact : .fast
             options.isSynchronous = false
 
             var hasResumed = false

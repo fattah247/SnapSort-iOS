@@ -10,31 +10,62 @@ import SwiftUI
 struct SmartAlbumGridView: View {
     @ObservedObject var viewModel: ReviewViewModel
     @EnvironmentObject var photoService: PhotoLibraryService
+    @State private var dismissedScanningOverlay = false
 
     private let columns = [
         GridItem(.flexible(), spacing: AppSpacing.sm),
         GridItem(.flexible(), spacing: AppSpacing.sm)
     ]
 
+    private var shouldShowScanningOverlay: Bool {
+        guard !dismissedScanningOverlay,
+              let analysisService = viewModel.analysisService,
+              analysisService.analysisProgress.isScanning else { return false }
+        let hasResults = viewModel.smartCategoryCounts.values.contains { $0 > 0 }
+        return !hasResults
+    }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AppSpacing.lg) {
-                // Analysis progress — show prominently at top when scanning
-                if let analysisService = viewModel.analysisService,
-                   analysisService.analysisProgress.isScanning {
-                    AnalysisProgressView(analysisService: analysisService)
-                        .padding(.horizontal, AppSpacing.md)
-                }
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: AppSpacing.lg) {
+                    // Analysis progress banner — only when overlay is NOT shown
+                    if !shouldShowScanningOverlay,
+                       let analysisService = viewModel.analysisService,
+                       analysisService.analysisProgress.isScanning {
+                        AnalysisProgressView(analysisService: analysisService)
+                            .padding(.horizontal, AppSpacing.md)
+                    }
 
-                // People section
-                if !viewModel.peopleAlbums.isEmpty {
-                    peopleSection
-                }
+                    // People section
+                    if !viewModel.peopleAlbums.isEmpty {
+                        peopleSection
+                    }
 
-                // Smart categories grid
-                smartCategoriesSection
+                    // Smart categories grid
+                    smartCategoriesSection
+                }
+                .padding(.vertical, AppSpacing.sm)
             }
-            .padding(.vertical, AppSpacing.sm)
+
+            if shouldShowScanningOverlay {
+                ScanningOverlayView(
+                    progress: viewModel.analysisService?.analysisProgress ?? AnalysisProgress(),
+                    onBrowseAnyway: {
+                        withAnimation(.appSpring) {
+                            dismissedScanningOverlay = true
+                        }
+                    }
+                )
+                .transition(.opacity)
+            }
+        }
+        .onChange(of: viewModel.smartCategoryCounts) { _, counts in
+            if counts.values.contains(where: { $0 > 0 }) {
+                withAnimation(.appSpring) {
+                    dismissedScanningOverlay = true
+                }
+            }
         }
     }
 
@@ -161,5 +192,96 @@ struct ScaleButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.appSpring, value: configuration.isPressed)
+    }
+}
+
+// MARK: - Scanning Overlay
+
+struct ScanningOverlayView: View {
+    let progress: AnalysisProgress
+    let onBrowseAnyway: () -> Void
+
+    @State private var pulseScale: CGFloat = 1.0
+
+    var body: some View {
+        VStack(spacing: AppSpacing.xl) {
+            Spacer()
+
+            // Pulsing sparkle icon
+            ZStack {
+                Circle()
+                    .fill(AppColors.primary.opacity(0.1))
+                    .frame(width: 120, height: 120)
+                    .scaleEffect(pulseScale)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: 44, weight: .medium))
+                    .foregroundStyle(AppColors.primaryGradient)
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                    pulseScale = 1.15
+                }
+            }
+
+            VStack(spacing: AppSpacing.sm) {
+                Text("Analyzing Your Library")
+                    .font(AppTypography.headlineMedium)
+                    .foregroundColor(AppColors.textPrimary)
+
+                Text("We're scanning your photos to find duplicates, blurry shots, and more. This only happens once.")
+                    .font(AppTypography.bodySmall)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppSpacing.xl)
+            }
+
+            // Progress bar with count
+            VStack(spacing: AppSpacing.xs) {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(AppColors.primary.opacity(0.12))
+                            .frame(height: 8)
+
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(AppColors.primaryGradient)
+                            .frame(
+                                width: geometry.size.width * progress.progress,
+                                height: 8
+                            )
+                            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: progress.progress)
+                    }
+                }
+                .frame(height: 8)
+                .padding(.horizontal, AppSpacing.xl)
+
+                if progress.totalPhotos > 0 {
+                    Text("\(progress.analyzedPhotos) of \(progress.totalPhotos) photos analyzed")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                onBrowseAnyway()
+            } label: {
+                Text("Browse anyway")
+                    .font(AppTypography.labelMedium)
+                    .foregroundColor(AppColors.primary)
+                    .padding(.horizontal, AppSpacing.lg)
+                    .padding(.vertical, AppSpacing.sm)
+                    .background(
+                        Capsule()
+                            .fill(AppColors.primary.opacity(0.12))
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, AppSpacing.xl)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppColors.groupedBackground)
     }
 }

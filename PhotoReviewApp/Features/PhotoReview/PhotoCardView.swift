@@ -12,6 +12,7 @@ import OSLog
 struct PhotoCardView: View {
     let photo: Photo
     let viewModel: ReviewViewModel
+    var onTap: (() -> Void)?
     var onSkip: (() -> Void)?
 
     @GestureState private var dragOffset = CGSize.zero
@@ -43,6 +44,7 @@ struct PhotoCardView: View {
                 .offset(dragOffset)
                 .rotationEffect(.degrees(Double(dragOffset.width / 25)))
                 .scaleEffect(1 - abs(dragOffset.width) / 1500)
+                .onTapGesture { onTap?() }
                 .gesture(dragGesture(geometry: geometry))
                 .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.8), value: dragOffset)
 
@@ -164,7 +166,6 @@ struct PhotoCardView: View {
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: dragOffset.width)
     }
 
     private func dragGesture(geometry: GeometryProxy) -> some Gesture {
@@ -175,22 +176,16 @@ struct PhotoCardView: View {
                 state = value.translation
                 let absWidth = abs(value.translation.width)
 
-                // Update overlay opacity
-                withAnimation(.easeOut(duration: 0.1)) {
-                    overlayOpacity = min(absWidth / 100, 1.0)
-                    iconScale = min(0.5 + (absWidth / decisionThreshold) * 0.5, 1.0)
-                }
+                // Update overlay opacity — direct assignment, no withAnimation per frame
+                overlayOpacity = min(absWidth / 100, 1.0)
+                iconScale = min(0.5 + (absWidth / decisionThreshold) * 0.5, 1.0)
 
                 // Haptic feedback at threshold
                 if absWidth > decisionThreshold && !hasTriggeredThresholdHaptic {
                     haptic.impact(.medium)
-                    DispatchQueue.main.async {
-                        hasTriggeredThresholdHaptic = true
-                    }
+                    hasTriggeredThresholdHaptic = true
                 } else if absWidth < decisionThreshold && hasTriggeredThresholdHaptic {
-                    DispatchQueue.main.async {
-                        hasTriggeredThresholdHaptic = false
-                    }
+                    hasTriggeredThresholdHaptic = false
                 }
             }
             .onEnded { value in

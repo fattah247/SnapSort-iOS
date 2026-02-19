@@ -83,6 +83,13 @@ final class SmartCategoryService {
         return counts
     }
 
+    func getCategoryCountsAsync() async -> [SmartCategory: Int] {
+        let stats = await cacheManager.getCacheStatisticsAsync()
+        var counts = stats.byCategory
+        counts[.people] = peopleService.fetchPeopleAlbums().reduce(0) { $0 + $1.assetCount }
+        return counts
+    }
+
     // MARK: - Analyze On-Demand
 
     /// Analyzes a batch of assets that haven't been cached yet
