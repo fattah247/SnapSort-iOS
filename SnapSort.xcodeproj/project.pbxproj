@@ -1,0 +1,895 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9C88CAC02D61BAD90071D30E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C88CAA12D61BA580071D30E /* WidgetKit.framework */; };
+		9C88CAC12D61BAD90071D30E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9C88CAA32D61BA580071D30E /* SwiftUI.framework */; };
+		9C88CAD22D61BADA0071D30E /* SnapSortWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9C88CABF2D61BAD90071D30E /* SnapSortWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A1B2C3D40001000000000001 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40002000000000001 /* Sentry */; };
+		A1B2C3D40001000000000002 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40002000000000002 /* TelemetryDeck */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9C2466D72D48AC6A00523334 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9C2466BD2D48AC6900523334 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9C2466C42D48AC6900523334;
+			remoteInfo = SnapSort;
+		};
+		9C2466E12D48AC6A00523334 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9C2466BD2D48AC6900523334 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9C2466C42D48AC6900523334;
+			remoteInfo = SnapSort;
+		};
+		9C88CAD02D61BADA0071D30E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9C2466BD2D48AC6900523334 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9C88CABE2D61BAD90071D30E;
+			remoteInfo = SnapSortWidgetsExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		9C88CAB62D61BA5A0071D30E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9C88CAD22D61BADA0071D30E /* SnapSortWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		9C2466C52D48AC6900523334 /* SnapSort.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnapSort.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C2466D62D48AC6A00523334 /* SnapSortTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnapSortTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C2466E02D48AC6A00523334 /* SnapSortUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SnapSortUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C88CAA12D61BA580071D30E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		9C88CAA32D61BA580071D30E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		9C88CABF2D61BAD90071D30E /* SnapSortWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SnapSortWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9C88CAD32D61BADA0071D30E /* Exceptions for "SnapSortWidgets" folder in "SnapSortWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9C88CABE2D61BAD90071D30E /* SnapSortWidgetsExtension */;
+		};
+		9C88CAD82D61BB3A0071D30E /* Exceptions for "SnapSort" folder in "SnapSort" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				Widgets/SnapSortWidget.swift,
+			);
+			target = 9C2466C42D48AC6900523334 /* SnapSort */;
+		};
+		9C88CAD92D61BB3A0071D30E /* Exceptions for "SnapSort" folder in "SnapSortWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/Constants/Constants.swift,
+				Widgets/SnapSortWidget.swift,
+				Widgets/ReviewStatsWidget.swift,
+			);
+			target = 9C88CABE2D61BAD90071D30E /* SnapSortWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		9C2466C72D48AC6900523334 /* SnapSort */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C88CAD82D61BB3A0071D30E /* Exceptions for "SnapSort" folder in "SnapSort" target */,
+				9C88CAD92D61BB3A0071D30E /* Exceptions for "SnapSort" folder in "SnapSortWidgetsExtension" target */,
+			);
+			path = SnapSort;
+			sourceTree = "<group>";
+		};
+		9C2466D92D48AC6A00523334 /* SnapSortTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SnapSortTests;
+			sourceTree = "<group>";
+		};
+		9C2466E32D48AC6A00523334 /* SnapSortUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SnapSortUITests;
+			sourceTree = "<group>";
+		};
+		9C357D482D50B39700C7A784 /* Supporting */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Supporting;
+			sourceTree = "<group>";
+		};
+		9C88CAA52D61BA580071D30E /* SnapSortWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SnapSortWidgets;
+			sourceTree = "<group>";
+		};
+		9C88CAC22D61BAD90071D30E /* SnapSortWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				9C88CAD32D61BADA0071D30E /* Exceptions for "SnapSortWidgets" folder in "SnapSortWidgetsExtension" target */,
+			);
+			path = SnapSortWidgets;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9C2466C22D48AC6900523334 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D40001000000000001 /* Sentry in Frameworks */,
+				A1B2C3D40001000000000002 /* TelemetryDeck in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C2466D32D48AC6A00523334 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C2466DD2D48AC6A00523334 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C88CABC2D61BAD90071D30E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9C88CAC12D61BAD90071D30E /* SwiftUI.framework in Frameworks */,
+				9C88CAC02D61BAD90071D30E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9C2466BC2D48AC6900523334 = {
+			isa = PBXGroup;
+			children = (
+				9C357D482D50B39700C7A784 /* Supporting */,
+				9C2466C72D48AC6900523334 /* SnapSort */,
+				9C2466D92D48AC6A00523334 /* SnapSortTests */,
+				9C2466E32D48AC6A00523334 /* SnapSortUITests */,
+				9C88CAA52D61BA580071D30E /* SnapSortWidgets */,
+				9C88CAC22D61BAD90071D30E /* SnapSortWidgets */,
+				9C88CAA02D61BA580071D30E /* Frameworks */,
+				9C2466C62D48AC6900523334 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9C2466C62D48AC6900523334 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9C2466C52D48AC6900523334 /* SnapSort.app */,
+				9C2466D62D48AC6A00523334 /* SnapSortTests.xctest */,
+				9C2466E02D48AC6A00523334 /* SnapSortUITests.xctest */,
+				9C88CABF2D61BAD90071D30E /* SnapSortWidgetsExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9C88CAA02D61BA580071D30E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9C88CAA12D61BA580071D30E /* WidgetKit.framework */,
+				9C88CAA32D61BA580071D30E /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9C2466C42D48AC6900523334 /* SnapSort */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C2466EA2D48AC6A00523334 /* Build configuration list for PBXNativeTarget "SnapSort" */;
+			buildPhases = (
+				9C2466C12D48AC6900523334 /* Sources */,
+				9C2466C22D48AC6900523334 /* Frameworks */,
+				9C2466C32D48AC6900523334 /* Resources */,
+				9C88CAB62D61BA5A0071D30E /* Embed Foundation Extensions */,
+				A1B2C3D40003000000000001 /* SwiftLint */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9C88CAD12D61BADA0071D30E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9C2466C72D48AC6900523334 /* SnapSort */,
+				9C357D482D50B39700C7A784 /* Supporting */,
+			);
+			name = SnapSort;
+			packageProductDependencies = (
+				A1B2C3D40002000000000001 /* Sentry */,
+				A1B2C3D40002000000000002 /* TelemetryDeck */,
+			);
+			productName = SnapSort;
+			productReference = 9C2466C52D48AC6900523334 /* SnapSort.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9C2466D52D48AC6A00523334 /* SnapSortTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C2466ED2D48AC6A00523334 /* Build configuration list for PBXNativeTarget "SnapSortTests" */;
+			buildPhases = (
+				9C2466D22D48AC6A00523334 /* Sources */,
+				9C2466D32D48AC6A00523334 /* Frameworks */,
+				9C2466D42D48AC6A00523334 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9C2466D82D48AC6A00523334 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9C2466D92D48AC6A00523334 /* SnapSortTests */,
+			);
+			name = SnapSortTests;
+			packageProductDependencies = (
+			);
+			productName = SnapSortTests;
+			productReference = 9C2466D62D48AC6A00523334 /* SnapSortTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9C2466DF2D48AC6A00523334 /* SnapSortUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C2466F02D48AC6A00523334 /* Build configuration list for PBXNativeTarget "SnapSortUITests" */;
+			buildPhases = (
+				9C2466DC2D48AC6A00523334 /* Sources */,
+				9C2466DD2D48AC6A00523334 /* Frameworks */,
+				9C2466DE2D48AC6A00523334 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9C2466E22D48AC6A00523334 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				9C2466E32D48AC6A00523334 /* SnapSortUITests */,
+			);
+			name = SnapSortUITests;
+			packageProductDependencies = (
+			);
+			productName = SnapSortUITests;
+			productReference = 9C2466E02D48AC6A00523334 /* SnapSortUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		9C88CABE2D61BAD90071D30E /* SnapSortWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C88CAD42D61BADA0071D30E /* Build configuration list for PBXNativeTarget "SnapSortWidgetsExtension" */;
+			buildPhases = (
+				9C88CABB2D61BAD90071D30E /* Sources */,
+				9C88CABC2D61BAD90071D30E /* Frameworks */,
+				9C88CABD2D61BAD90071D30E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9C88CAC22D61BAD90071D30E /* SnapSortWidgets */,
+			);
+			name = SnapSortWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = SnapSortWidgetsExtension;
+			productReference = 9C88CABF2D61BAD90071D30E /* SnapSortWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9C2466BD2D48AC6900523334 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					9C2466C42D48AC6900523334 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					9C2466D52D48AC6A00523334 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9C2466C42D48AC6900523334;
+					};
+					9C2466DF2D48AC6A00523334 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9C2466C42D48AC6900523334;
+					};
+					9C88CABE2D61BAD90071D30E = {
+						CreatedOnToolsVersion = 16.2;
+					};
+				};
+			};
+			buildConfigurationList = 9C2466C02D48AC6900523334 /* Build configuration list for PBXProject "SnapSort" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9C2466BC2D48AC6900523334;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1B2C3D40004000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				A1B2C3D40004000000000002 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 9C2466C62D48AC6900523334 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9C2466C42D48AC6900523334 /* SnapSort */,
+				9C2466D52D48AC6A00523334 /* SnapSortTests */,
+				9C2466DF2D48AC6A00523334 /* SnapSortUITests */,
+				9C88CABE2D61BAD90071D30E /* SnapSortWidgetsExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9C2466C32D48AC6900523334 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C2466D42D48AC6A00523334 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C2466DE2D48AC6A00523334 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C88CABD2D61BAD90071D30E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1B2C3D40003000000000001 /* SwiftLint */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = SwiftLint;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if which swiftlint > /dev/null; then\n  swiftlint\nelse\n  echo \"warning: SwiftLint not installed, install with: brew install swiftlint\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9C2466C12D48AC6900523334 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C2466D22D48AC6A00523334 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C2466DC2D48AC6A00523334 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C88CABB2D61BAD90071D30E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9C2466D82D48AC6A00523334 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9C2466C42D48AC6900523334 /* SnapSort */;
+			targetProxy = 9C2466D72D48AC6A00523334 /* PBXContainerItemProxy */;
+		};
+		9C2466E22D48AC6A00523334 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9C2466C42D48AC6900523334 /* SnapSort */;
+			targetProxy = 9C2466E12D48AC6A00523334 /* PBXContainerItemProxy */;
+		};
+		9C88CAD12D61BADA0071D30E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9C88CABE2D61BAD90071D30E /* SnapSortWidgetsExtension */;
+			targetProxy = 9C88CAD02D61BADA0071D30E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9C2466E82D48AC6A00523334 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6RYV8J9924;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9C2466E92D48AC6A00523334 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 6RYV8J9924;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		9C2466EB2D48AC6A00523334 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SnapSort/SnapSort.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"SnapSort/Preview Content\"";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SnapSort/Info.plist;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "\"This app requires access to add photos to your library so you can save your edited images and creations.\"";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"This app requires access to your photo library to allow you to review and manage your photos.\"";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSort;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Debug;
+		};
+		9C2466EC2D48AC6A00523334 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SnapSort/SnapSort.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"SnapSort/Preview Content\"";
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SnapSort/Info.plist;
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "\"This app requires access to add photos to your library so you can save your edited images and creations.\"";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"This app requires access to your photo library to allow you to review and manage your photos.\"";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSort;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+		9C2466EE2D48AC6A00523334 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSortTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SnapSort.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SnapSort";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Debug;
+		};
+		9C2466EF2D48AC6A00523334 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSortTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SnapSort.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SnapSort";
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+		9C2466F12D48AC6A00523334 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSortUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = SnapSort;
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Debug;
+		};
+		9C2466F22D48AC6A00523334 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSortUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = SnapSort;
+				XROS_DEPLOYMENT_TARGET = 2.2;
+			};
+			name = Release;
+		};
+		9C88CAD52D61BADA0071D30E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SnapSortWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SnapSortWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSort.SnapSortWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9C88CAD62D61BADA0071D30E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SnapSortWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SnapSortWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.fatarc.SnapSort.SnapSortWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9C2466C02D48AC6900523334 /* Build configuration list for PBXProject "SnapSort" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C2466E82D48AC6A00523334 /* Debug */,
+				9C2466E92D48AC6A00523334 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C2466EA2D48AC6A00523334 /* Build configuration list for PBXNativeTarget "SnapSort" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C2466EB2D48AC6A00523334 /* Debug */,
+				9C2466EC2D48AC6A00523334 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C2466ED2D48AC6A00523334 /* Build configuration list for PBXNativeTarget "SnapSortTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C2466EE2D48AC6A00523334 /* Debug */,
+				9C2466EF2D48AC6A00523334 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C2466F02D48AC6A00523334 /* Build configuration list for PBXNativeTarget "SnapSortUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C2466F12D48AC6A00523334 /* Debug */,
+				9C2466F22D48AC6A00523334 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9C88CAD42D61BADA0071D30E /* Build configuration list for PBXNativeTarget "SnapSortWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C88CAD52D61BADA0071D30E /* Debug */,
+				9C88CAD62D61BADA0071D30E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1B2C3D40004000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
+		A1B2C3D40004000000000002 /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1B2C3D40002000000000001 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40004000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+		A1B2C3D40002000000000002 /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40004000000000002 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 9C2466BD2D48AC6900523334 /* Project object */;
+}
