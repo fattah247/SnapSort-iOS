@@ -8,6 +8,8 @@ import TelemetryDeck
 
 enum TelemetryService {
 
+    private static var isInitialized = false
+
     // MARK: - Events
 
     enum AppEvent {
@@ -58,11 +60,13 @@ enum TelemetryService {
 
         let config = TelemetryDeck.Config(appID: appID)
         TelemetryDeck.initialize(config: config)
+        isInitialized = true
     }
 
     // MARK: - Sending
 
     static func send(_ event: AppEvent) {
+        guard isInitialized else { return }
         if event.parameters.isEmpty {
             TelemetryDeck.signal(event.name)
         } else {

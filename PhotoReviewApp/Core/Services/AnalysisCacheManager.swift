@@ -10,9 +10,13 @@ import Photos
 
 final class AnalysisCacheManager {
     private let context: NSManagedObjectContext
+    private let backgroundContext: NSManagedObjectContext
 
     init(context: NSManagedObjectContext) {
         self.context = context
+        self.backgroundContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        self.backgroundContext.persistentStoreCoordinator = context.persistentStoreCoordinator
+        self.backgroundContext.automaticallyMergesChangesFromParent = true
     }
 
     // MARK: - Read
@@ -83,6 +87,25 @@ final class AnalysisCacheManager {
         }
 
         return (total: total, byCategory: byCategory)
+    }
+
+    func getCacheStatisticsAsync() async -> (total: Int, byCategory: [SmartCategory: Int]) {
+        await withCheckedContinuation { continuation in
+            backgroundContext.perform { [backgroundContext] in
+                var byCategory: [SmartCategory: Int] = [:]
+
+                let totalRequest = PhotoAnalysisEntity.fetchRequest()
+                let total = (try? backgroundContext.count(for: totalRequest)) ?? 0
+
+                for category in SmartCategory.allCases {
+                    let request = PhotoAnalysisEntity.fetchRequest()
+                    request.predicate = NSPredicate(format: "ANY categories CONTAINS %@", category.rawValue)
+                    byCategory[category] = (try? backgroundContext.count(for: request)) ?? 0
+                }
+
+                continuation.resume(returning: (total: total, byCategory: byCategory))
+            }
+        }
     }
 
     // MARK: - Write
