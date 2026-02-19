@@ -19,6 +19,7 @@ struct ReviewView: View {
 
     @State private var showTutorial = SwipeTutorialManager.shouldShowTutorial
     @State private var showAdInterstitial = false
+    @State private var selectedAsset: PHAsset?
 
     init(
         photoService: any PhotoLibraryServiceProtocol,
@@ -44,8 +45,6 @@ struct ReviewView: View {
             peopleService: peopleService
         ))
     }
-
-    @Namespace private var cardNamespace
 
     var body: some View {
         ZStack {
@@ -144,8 +143,8 @@ struct ReviewView: View {
             }
         }
         .onReceive(
-            // Refresh smart counts every 5 seconds while scan is running
-            Timer.publish(every: 5, on: .main, in: .common).autoconnect()
+            // Refresh smart counts periodically while scan is running
+            Timer.publish(every: 10, on: .main, in: .common).autoconnect()
         ) { _ in
             if viewModel.reviewMode == .smart,
                !viewModel.isInSmartSwipeMode,
@@ -325,22 +324,23 @@ struct ReviewView: View {
     // MARK: - Card Stack View
     private func cardStackView(photos: [Photo]) -> some View {
         GeometryReader { geometry in
+            let visiblePhotos = photos.suffix(3)
+            let totalCount = photos.count
             ZStack {
-                ForEach(photos) { photo in
+                ForEach(Array(visiblePhotos.enumerated()), id: \.element.id) { offset, photo in
+                    let indexFromTop = visiblePhotos.count - 1 - offset
                     PhotoCardView(
                         photo: photo,
                         viewModel: viewModel,
+                        onTap: {
+                            selectedAsset = viewModel.asset(for: photo.id)
+                        },
                         onSkip: {
                             viewModel.skipPhoto(photo)
                         }
                     )
                     .frame(width: geometry.size.width * 0.9, height: geometry.size.height * 0.95)
-                    .matchedGeometryEffect(id: photo.id, in: cardNamespace)
-                    .transition(.asymmetric(
-                        insertion: .offset(y: 50).combined(with: .opacity),
-                        removal: .scale(scale: 0.8).combined(with: .opacity)
-                    ))
-                    .zIndex(Double(photos.count - (photos.firstIndex(of: photo) ?? 0)))
+                    .zIndex(Double(totalCount - indexFromTop))
                 }
 
                 // Loading-more indicator at the bottom
@@ -364,6 +364,9 @@ struct ReviewView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .sheet(item: $selectedAsset) { asset in
+            PhotoDetailView(asset: asset)
         }
     }
 
