@@ -51,6 +51,8 @@ final class ReviewViewModel: ObservableObject {
 
     // Track reviewed photo IDs to avoid showing them again in this session
     private var reviewedPhotoIds = Set<String>()
+    private var assetLookup: [String: PHAsset] = [:]
+    private var isUpgradingTopPhoto = false
 
     var storageTarget: Int64 {
         settings.storageTarget
@@ -99,6 +101,7 @@ final class ReviewViewModel: ObservableObject {
         reviewMode = .library
         isInSmartSwipeMode = false
         reviewedPhotoIds.removeAll()
+        assetLookup.removeAll()
         TelemetryService.send(.categorySelected(String(describing: category)))
         Task { await loadInitialPhotos() }
     }
@@ -109,6 +112,7 @@ final class ReviewViewModel: ObservableObject {
         selectedCategory = .smart(category)
         isInSmartSwipeMode = true
         reviewedPhotoIds.removeAll()
+        assetLookup.removeAll()
         TelemetryService.send(.smartCategoryUsed(String(describing: category)))
         Task { await loadInitialPhotos() }
     }
@@ -117,6 +121,7 @@ final class ReviewViewModel: ObservableObject {
         selectedCategory = .person(id: person.id, name: person.name)
         isInSmartSwipeMode = true
         reviewedPhotoIds.removeAll()
+        assetLookup.removeAll()
         Task { await loadInitialPhotos() }
     }
 
@@ -124,6 +129,7 @@ final class ReviewViewModel: ObservableObject {
         isInSmartSwipeMode = false
         selectedCategory = .library(.all)
         reviewedPhotoIds.removeAll()
+        assetLookup.removeAll()
         state = .idle
     }
 
@@ -378,23 +384,23 @@ final class ReviewViewModel: ObservableObject {
         append: Bool = false
     ) async {
         let targetCount = batchSize
-        var photos = [Photo]()
+        var photos = [(Photo, PHAsset)]()
         var iterator = assets.makeIterator()
 
         // Use a task group with bounded concurrency — process candidates
         // until we have enough successfully-loaded photos or run out of assets.
-        await withTaskGroup(of: Photo?.self) { group in
+        await withTaskGroup(of: (Photo, PHAsset)?.self) { group in
             for _ in 0..<min(maxConcurrentImageLoads, assets.count) {
                 guard let asset = iterator.next() else { break }
                 group.addTask { [weak self] in
-                    guard let self else { return nil }
-                    return await self.processAsset(asset)
+                    guard let self, let photo = await self.processAsset(asset) else { return nil }
+                    return (photo, asset)
                 }
             }
 
-            for await photo in group {
-                if let photo {
-                    photos.append(photo)
+            for await result in group {
+                if let result {
+                    photos.append(result)
                 }
                 // Stop once we have enough
                 guard photos.count < targetCount else {
@@ -404,29 +410,70 @@ final class ReviewViewModel: ObservableObject {
                 // Feed the next candidate
                 if let asset = iterator.next() {
                     group.addTask { [weak self] in
-                        guard let self else { return nil }
-                        return await self.processAsset(asset)
+                        guard let self, let photo = await self.processAsset(asset) else { return nil }
+                        return (photo, asset)
                     }
                 }
             }
         }
 
-        for photo in photos {
+        for (photo, asset) in photos {
             reviewedPhotoIds.insert(photo.id)
+            assetLookup[photo.id] = asset
         }
 
-        let newPhotos = sortOption == .random ? photos.shuffled() : photos
+        let newPhotos = sortOption == .random ? photos.map(\.0).shuffled() : photos.map(\.0)
 
         if append, case .loaded(let existing) = state {
-            state = .loaded(existing + newPhotos)
+            let allPhotos = existing + newPhotos
+            state = .loaded(allPhotos)
+            // Trim assetLookup to only current photo IDs to prevent unbounded growth
+            let currentIds = Set(allPhotos.map(\.id))
+            assetLookup = assetLookup.filter { currentIds.contains($0.key) }
         } else {
             state = .loaded(newPhotos)
+            let currentIds = Set(newPhotos.map(\.id))
+            assetLookup = assetLookup.filter { currentIds.contains($0.key) }
         }
+
+        Task { await upgradeTopPhotoQuality() }
+    }
+
+    /// Loads a higher-quality image for the top photo in the stack
+    private func upgradeTopPhotoQuality() async {
+        guard !isUpgradingTopPhoto else { return }
+        isUpgradingTopPhoto = true
+        defer { isUpgradingTopPhoto = false }
+
+        guard case .loaded(let photos) = state,
+              let topPhoto = photos.last,
+              let asset = assetLookup[topPhoto.id] else { return }
+
+        let hqSize = CGSize(width: 900, height: 900)
+        guard let hqImage = await photoService.loadImage(for: asset, size: hqSize) else { return }
+
+        guard case .loaded(var currentPhotos) = state,
+              let index = currentPhotos.firstIndex(where: { $0.id == topPhoto.id }) else { return }
+
+        currentPhotos[index] = Photo(
+            id: topPhoto.id,
+            image: hqImage,
+            creationDate: topPhoto.creationDate,
+            fileSize: topPhoto.fileSize,
+            analysisResult: topPhoto.analysisResult
+        )
+        state = .loaded(currentPhotos)
+    }
+
+    /// Returns the PHAsset for a given photo ID, if available in the current lookup
+    func asset(for photoId: String) -> PHAsset? {
+        assetLookup[photoId]
     }
 
     /// Resets the review history to allow seeing all photos again
     func resetReviewHistory() {
         reviewedPhotoIds.removeAll()
+        assetLookup.removeAll()
     }
 
     /// Loads a single photo using a local-first strategy:
@@ -434,7 +481,7 @@ final class ReviewViewModel: ObservableObject {
     /// 2. Fall back to network load with timeout
     /// Returns nil if both fail (iCloud-only photo on slow connection — skip it)
     private func processAsset(_ asset: PHAsset) async -> Photo? {
-        let imageSize = CGSize(width: 800, height: 800)
+        let imageSize = CGSize(width: 600, height: 600)
 
         // Fast path: try locally-cached image first (no network)
         var image = await photoService.loadLocalImage(for: asset, size: imageSize)
@@ -547,6 +594,7 @@ final class ReviewViewModel: ObservableObject {
     }
 
     private func removePhoto(_ photo: Photo) {
+        assetLookup.removeValue(forKey: photo.id)
         withAnimation(.spring()) {
             state.removePhoto(photo)
         }
@@ -563,7 +611,7 @@ final class ReviewViewModel: ObservableObject {
     /// Fetches fresh counts and albums from the analysis cache
     private func updateSmartCounts() async {
         guard let smartCategoryService, let peopleService else { return }
-        let counts = smartCategoryService.getCategoryCounts()
+        let counts = await smartCategoryService.getCategoryCountsAsync()
         let albums = peopleService.fetchPeopleAlbums()
         smartCategoryCounts = counts
         peopleAlbums = albums
@@ -571,8 +619,13 @@ final class ReviewViewModel: ObservableObject {
 
     /// Starts a foreground analysis scan if no photos have been analyzed yet
     private func triggerForegroundScanIfNeeded() async {
+        guard let analysisService else { return }
+
+        // Don't restart if a scan is already running
+        guard !analysisService.analysisProgress.isScanning else { return }
+
         let hasAnalyzedPhotos = smartCategoryCounts.values.contains { $0 > 0 }
-        guard !hasAnalyzedPhotos, let analysisService else { return }
+        guard !hasAnalyzedPhotos else { return }
 
         analysisService.startBackgroundScan(
             photoService: photoService,
