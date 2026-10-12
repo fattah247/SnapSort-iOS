@@ -2,272 +2,303 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsViewModel
-    @EnvironmentObject var haptic: HapticService
-    @Environment(\.colorScheme) var colorScheme
-    @State private var showTrashConfirmation = false
-    @State private var showSaveConfirmation = false
-    
+    @EnvironmentObject var analysisService: PhotoAnalysisService
+    @EnvironmentObject var photoService: PhotoLibraryService
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var didResetTips = false
+    @State private var showRescanConfirmation = false
+
     var body: some View {
         NavigationStack {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: AppSpacing.sectionSpacing) {
-                    notificationsSection
-                    reviewPreferencesSection
-                    repetitionSection
-                    deletionSection
-
-                    // Add bottom spacer to ensure content isn't covered
-                    Color.clear.frame(height: 60)
+            Form {
+                Group {
+                    remindersSection
+                    reviewingSection
+                    smartSection
+                    tipsSection
+                    aboutSection
                 }
-                .padding(.vertical, AppSpacing.sectionSpacing)
-                .padding(.horizontal, AppSpacing.md)
-                // Add the overlay directly to the VStack
-                .overlay(
-                    saveConfirmationOverlay
-                        .padding(.bottom, AppSpacing.lg),
-                    alignment: .bottom
-                )
+                .listRowBackground(AppColors.cardBackground)
             }
-            .background(AppColors.groupedBackground.ignoresSafeArea())
+            .scrollContentBackground(.hidden)
+            .background(AppColors.groupedBackground)
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        performSave()
-                    } label: {
-                        Text("Save")
-                            .fontWeight(.semibold)
-                            .foregroundColor(settings.hasUnsavedChanges ? .white : AppColors.textSecondary)
-                            .padding(.horizontal, AppSpacing.md)
-                            .padding(.vertical, AppSpacing.xs)
-                            .background(
-                                settings.hasUnsavedChanges
-                                ? AppColors.primary
-                                : Color(.quaternarySystemFill)
-                            )
-                            .clipShape(Capsule())
-                    }
-                    .disabled(!settings.hasUnsavedChanges)
-                    .buttonStyle(.plain)
+            .confirmationDialog(
+                "Re-scan your library?",
+                isPresented: $showRescanConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Re-scan Library") {
+                    analysisService.resetAndRescan(photoService: photoService)
                 }
+            } message: {
+                Text("SnapSort will look through every photo again. This can take a while on big libraries.")
             }
-        }
-        .tint(AppColors.primary)
-        .alert("Confirm Deletion", isPresented: $showTrashConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                settings.emptyTrash()
+            .task {
+                await settings.refreshNotificationStatus()
             }
-        } message: {
-            Text("Are you sure you want to permanently delete all items in the trash?")
-        }
-    }
-    // MARK: - Sections
-    
-    private var notificationsSection: some View {
-        SectionCard(
-            title: LocalizedStrings.notificationsSection,
-            icon: "bell.badge.fill",
-            color: AppColors.primary
-        ) {
-            VStack(spacing: 0) {
-                Toggle(isOn: $settings.isNotificationsEnabled) {
-                    SettingRow(icon: "bell",
-                               title: LocalizedStrings.notificationsSection,
-                               iconColor: AppColors.primary)
-                }
-                .toggleStyle(SwitchToggleStyle(tint: AppColors.primary))
-                .padding(.vertical, AppSpacing.sm)
-                .dynamicTypeSize(.medium ... .accessibility2)
-                
-                if settings.isNotificationsEnabled {
-                    Divider()
-                    SettingRow(icon: "clock",
-                               title: LocalizedStrings.notificationBody,
-                               iconColor: AppColors.primary) {
-                        DatePicker(
-                            "",
-                            selection: $settings.notificationTime,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .labelsHidden()
-                    }
-                               .padding(.vertical, AppSpacing.sm)
-                               .dynamicTypeSize(.medium ... .accessibility2)
-                } else {
-                    Divider()
-                    Text("— \(LocalizedStrings.notificationBody)")
-                        .font(AppTypography.bodySmall)
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.vertical, AppSpacing.sm)
-                        .dynamicTypeSize(.medium ... .accessibility2)
+            .onChange(of: scenePhase) { _, phase in
+                // The user may have changed notification permission in iOS Settings
+                if phase == .active {
+                    Task { await settings.refreshNotificationStatus() }
                 }
             }
         }
     }
-    
-    private var reviewPreferencesSection: some View {
-        SectionCard(
-            title: LocalizedStrings.settingsTitle,
-            icon: "photo.on.rectangle.angled",
-            color: AppColors.success
-        ) {
-            VStack(spacing: 0) {
-                SettingRow(icon: "externaldrive.badge.plus",
-                           title: "Storage Target",
-                           iconColor: AppColors.success) {
-                    StorageTargetStepper(
-                        value: $settings.storageTarget,
-                        onIncrement: { haptic.impact(.light) },
-                        onDecrement: { haptic.impact(.light) }
-                    )
-                }
-                           .padding(.vertical, AppSpacing.sm)
-                           .dynamicTypeSize(.medium ... .accessibility2)
 
-                Divider()
+    // MARK: - Reminders
 
-                SettingRow(icon: "arrow.up.arrow.down",
-                           title: "Sorting Method",
-                           iconColor: AppColors.success) {
-                    Picker("", selection: $settings.sortOption) {
-                        ForEach(PhotoSortOption.allCases, id: \.self) { option in
-                            Text(option.rawValue.capitalized).tag(option)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .onChange(of: settings.sortOption) { haptic.impact(.medium) }
-                }
-                           .padding(.vertical, AppSpacing.sm)
-                           .dynamicTypeSize(.medium ... .accessibility2)
+    private var remindersEnabled: Binding<Bool> {
+        Binding(
+            get: { settings.isNotificationsEnabled },
+            set: { newValue in
+                Task { await settings.setRemindersEnabled(newValue) }
             }
-        }
+        )
     }
-    
-    private var repetitionSection: some View {
-        SectionCard(
-            title: "Repetition Schedule",
-            icon: "repeat",
-            color: AppColors.warning
-        ) {
-            VStack(spacing: 0) {
-                SettingRow(icon: "calendar",
-                           title: "Repeat Schedule",
-                           iconColor: AppColors.warning) {
-                    Picker("", selection: $settings.repeatInterval) {
-                        ForEach(RepeatInterval.allCases, id: \.self) { interval in
-                            Text(interval.rawValue.capitalized).tag(interval)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .onChange(of: settings.repeatInterval) { haptic.impact(.medium) }
+
+    private var remindersSection: some View {
+        Section {
+            Toggle(isOn: remindersEnabled) {
+                SettingsLabel("Review Reminders", systemImage: "bell.fill", tint: AppColors.streak)
+            }
+
+            if settings.isNotificationsEnabled {
+                DatePicker(
+                    selection: $settings.notificationTime,
+                    displayedComponents: .hourAndMinute
+                ) {
+                    SettingsLabel("Time", systemImage: "clock.fill", tint: AppColors.storage)
                 }
-                           .padding(.vertical, AppSpacing.sm)
-                           .dynamicTypeSize(.medium ... .accessibility2)
+
+                Picker(selection: $settings.repeatInterval) {
+                    ForEach(RepeatInterval.allCases, id: \.self) { interval in
+                        Text(interval.displayName).tag(interval)
+                    }
+                } label: {
+                    SettingsLabel("Repeat", systemImage: "repeat", tint: AppColors.brand)
+                }
 
                 switch settings.repeatInterval {
                 case .weekly:
-                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                        Divider()
-                        Text("Selected Days")
-                            .font(AppTypography.bodySmall)
-                            .foregroundColor(AppColors.textSecondary)
-                            .dynamicTypeSize(.medium ... .accessibility2)
-                        WeekdaySelectionView(selection: $settings.selectedWeeklyDays)
+                    NavigationLink {
+                        WeekdaySelectionList(selection: $settings.selectedWeeklyDays)
+                    } label: {
+                        LabeledContent("Days", value: weekdaySummary)
                     }
-                    .padding(.vertical, AppSpacing.sm)
-
                 case .monthly:
-                    VStack(alignment: .leading, spacing: AppSpacing.sm) {
-                        Divider()
-                        Text("Day of Month")
-                            .font(AppTypography.bodySmall)
-                            .foregroundColor(AppColors.textSecondary)
-                            .dynamicTypeSize(.medium ... .accessibility2)
-                        MonthDaySelectionView(selection: $settings.selectedMonthlyDay)
+                    Picker("Day of Month", selection: $settings.selectedMonthlyDay) {
+                        ForEach(SettingsViewModel.monthDayRange, id: \.self) { day in
+                            Text(day, format: .number).tag(day)
+                        }
                     }
-                    .padding(.vertical, AppSpacing.sm)
-                    
                 default:
                     EmptyView()
                 }
             }
-            .transition(.opacity)
+        } header: {
+            Text("Reminders")
+        } footer: {
+            if settings.notificationsDenied {
+                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                    Text("Notifications are turned off for SnapSort.")
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        Button("Open Settings") { openURL(url) }
+                            .font(.footnote)
+                    }
+                }
+            } else {
+                Text("Get a nudge to clear out a few photos.")
+            }
         }
     }
-    
-    private var deletionSection: some View {
-        SectionCard(
-            title: "Deletion Settings",
-            icon: "trash.fill",
-            color: AppColors.danger
-        ) {
-            VStack(spacing: 0) {
-                SettingRow(icon: "exclamationmark.shield",
-                           title: "Notice PopUp",
-                           iconColor: AppColors.danger) {
-                    Toggle("", isOn: $settings.showDeletionConfirmation)
-                        .toggleStyle(SwitchToggleStyle(tint: AppColors.danger))
-                        .onChange(of: settings.showDeletionConfirmation) { haptic.impact(.light) }
+
+    private var weekdaySummary: String {
+        let selected = Set(settings.selectedWeeklyDays)
+        let weekdays: Set<Weekday> = [.mon, .tue, .wed, .thu, .fri]
+        switch selected {
+        case []: return "None"
+        case Set(Weekday.allCases): return "Every Day"
+        case weekdays: return "Weekdays"
+        case [.sat, .sun]: return "Weekends"
+        default:
+            return Weekday.localeOrdered
+                .filter(selected.contains)
+                .map(\.shortName)
+                .joined(separator: ", ")
+        }
+    }
+
+    // MARK: - Reviewing
+
+    private var reviewingSection: some View {
+        Section {
+            Picker(selection: $settings.sortOption) {
+                ForEach(PhotoSortOption.allCases, id: \.self) { option in
+                    Text(option.displayName).tag(option)
                 }
-                           .padding(.vertical, AppSpacing.sm)
-                           .dynamicTypeSize(.medium ... .accessibility2)
-                
-                Divider()
-                
-                Button(role: .destructive) {
-                    haptic.impact(.heavy)
-                    showTrashConfirmation = true
+            } label: {
+                SettingsLabel("Photo Order", systemImage: "arrow.up.arrow.down", tint: AppColors.brand)
+            }
+
+            Stepper(
+                value: $settings.storageTarget,
+                in: SettingsViewModel.storageTargetRange,
+                step: Int(SettingsViewModel.storageTargetStep)
+            ) {
+                // Not LabeledContent: inside a Stepper it splits the icon label
+                // into a stacked title/subtitle
+                HStack {
+                    SettingsLabel("Session Goal", systemImage: "leaf.fill", tint: AppColors.brand)
+                    Spacer(minLength: AppSpacing.xs)
+                    Text(settings.storageTarget.storageText)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            // Otherwise VoiceOver reads the raw byte count
+            .accessibilityValue(settings.storageTarget.storageText)
+
+            Toggle(isOn: $settings.showDeletionConfirmation) {
+                SettingsLabel("Confirm Before Trashing", systemImage: "trash.fill", tint: AppColors.delete)
+            }
+        } header: {
+            Text("Reviewing")
+        } footer: {
+            Text("A session wraps up once you've marked this much space for deletion. Trashed photos stay in your library until you empty the Trash.")
+        }
+    }
+
+    // MARK: - Smart Analysis
+
+    private var smartSection: some View {
+        Section {
+            LabeledContent {
+                if analysisService.analysisProgress.isScanning {
+                    ProgressView()
+                } else {
+                    Text("Up to date")
+                }
+            } label: {
+                SettingsLabel("Library Scan", systemImage: "square.grid.2x2.fill", tint: AppColors.storage)
+            }
+
+            Button {
+                showRescanConfirmation = true
+            } label: {
+                SettingsLabel("Re-scan Library", systemImage: "arrow.clockwise", tint: AppColors.people)
+            }
+            .disabled(analysisService.analysisProgress.isScanning)
+        } header: {
+            Text("Smart Groups")
+        } footer: {
+            Text("Smart groups are found on this device. New photos are checked whenever you open Smart.")
+        }
+    }
+
+    // MARK: - Tips
+
+    private var tipsSection: some View {
+        Section {
+            Button {
+                SwipeTutorialManager.reset()
+                didResetTips = true
+            } label: {
+                SettingsLabel("Show Swipe Tips Again", systemImage: "hand.draw.fill", tint: AppColors.keep, foreground: AppColors.keepInk)
+            }
+            .disabled(didResetTips)
+        } footer: {
+            if didResetTips {
+                Text("Tips will appear the next time you open Review.")
+            }
+        }
+    }
+
+    // MARK: - About
+
+    private var aboutSection: some View {
+        Section {
+            LabeledContent {
+                Text(appVersion)
+            } label: {
+                SettingsLabel("Version", systemImage: "info", tint: Color(.systemGray))
+            }
+        } footer: {
+            Text("Photos are analyzed on this device and never uploaded.")
+        }
+    }
+
+    private var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(version) (\(build))"
+    }
+}
+
+// MARK: - Row Label
+
+/// Settings-app style row label with a colored icon tile
+private struct SettingsLabel: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+    var foreground: Color = .white
+
+    init(_ title: String, systemImage: String, tint: Color, foreground: Color = .white) {
+        self.title = title
+        self.systemImage = systemImage
+        self.tint = tint
+        self.foreground = foreground
+    }
+
+    var body: some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage)
+                .iconTile(tint, size: 28, foreground: foreground)
+        }
+    }
+}
+
+// MARK: - Weekday Selection
+
+/// Multi-select list of weekdays, like the Clock app's Repeat screen
+private struct WeekdaySelectionList: View {
+    @Binding var selection: [Weekday]
+
+    var body: some View {
+        List {
+            ForEach(Weekday.localeOrdered) { day in
+                Button {
+                    toggle(day)
                 } label: {
-                    SettingRow(icon: "trash",
-                               title: "Empty Trash Now",
-                               iconColor: AppColors.danger)
+                    HStack {
+                        Text("Every \(Calendar.current.weekdaySymbols[day.rawValue - 1])")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if selection.contains(day) {
+                            Image(systemName: "checkmark")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.tint)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
-                .padding(.vertical, AppSpacing.sm)
-                .accessibilityLabel("Empty Trash Now")
+                .accessibilityAddTraits(selection.contains(day) ? .isSelected : [])
             }
         }
+        .navigationTitle("Days")
+        .navigationBarTitleDisplayMode(.inline)
     }
-    
-    // MARK: – Overlays
-    
-    private var saveConfirmationOverlay: some View {
-        Group {
-            if showSaveConfirmation {
-                HStack(spacing: AppSpacing.xs) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                        .foregroundColor(AppColors.success)
-                    Text("Settings Saved")
-                        .font(AppTypography.labelLarge)
-                }
-                .padding(.vertical, AppSpacing.sm)
-                .padding(.horizontal, AppSpacing.lg)
-                .background(
-                    Capsule()
-                        .fill(.regularMaterial)
-                        .overlay(
-                            Capsule()
-                                .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
-                        )
-                )
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.2 : 0.1), radius: 8, y: 2)
-                .transition(.move(edge: .bottom))
-            }
-        }
-        .animation(.appSpring, value: showSaveConfirmation)
-    }
-    
-    // MARK: – Actions
-    
-    private func performSave() {
-        haptic.notify(.success)
-        settings.saveSettings()
-        showSaveConfirmation = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            showSaveConfirmation = false
+
+    private func toggle(_ day: Weekday) {
+        if let index = selection.firstIndex(of: day) {
+            selection.remove(at: index)
+        } else {
+            selection.append(day)
         }
     }
 }

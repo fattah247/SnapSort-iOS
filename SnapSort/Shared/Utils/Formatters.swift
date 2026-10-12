@@ -26,3 +26,12 @@ struct Formatters {
         return formatter
     }()
 }
+
+extension Int64 {
+    /// Storage totals — "0 MB" rather than the system's "Zero kB"
+    var storageText: String {
+        self == 0
+            ? formatted(.byteCount(style: .file, allowedUnits: .mb, spellsOutZero: false))
+            : formatted(.byteCount(style: .file))
+    }
+}

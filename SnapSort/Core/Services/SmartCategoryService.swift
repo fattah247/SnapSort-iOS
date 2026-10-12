@@ -2,29 +2,35 @@
 //  SmartCategoryService.swift
 //  SnapSort
 //
-//  Orchestrates fetching photos for smart analysis categories
+//  Answers "which photos are in this smart group?" from the analysis cache,
+//  or straight from PhotoKit for metadata-only groups like long videos.
 //
 
 import Photos
-import Vision
 import OSLog
 
-final class SmartCategoryService {
-    private let analysisService: PhotoAnalysisService
+final class SmartCategoryService: @unchecked Sendable {
     private let cacheManager: AnalysisCacheManager
     private let peopleService: PeopleService
-    private let photoService: any PhotoLibraryServiceProtocol
+    let similarShots: SimilarShotsStore
 
     init(
-        analysisService: PhotoAnalysisService,
         cacheManager: AnalysisCacheManager,
         peopleService: PeopleService,
-        photoService: any PhotoLibraryServiceProtocol
+        similarShots: SimilarShotsStore
     ) {
-        self.analysisService = analysisService
         self.cacheManager = cacheManager
         self.peopleService = peopleService
-        self.photoService = photoService
+        self.similarShots = similarShots
+    }
+
+    // MARK: - Membership
+
+    /// Every smart group's members, keyed by asset identifier
+    func membership() async -> [SmartCategory: Set<String>] {
+        var members = await cacheManager.membership()
+        members[.longVideos] = Set(longVideoResult().identifiers)
+        return members
     }
 
     // MARK: - Fetch Assets by Smart Category
@@ -35,25 +41,29 @@ final class SmartCategoryService {
         excluding: Set<String>,
         sortOption: PhotoSortOption = .newestFirst
     ) async -> [PHAsset] {
-        switch category {
-        case .people:
-            // People uses PeopleService, not analysis cache
-            return []
-
-        case .duplicates:
-            return await fetchDuplicates(limit: limit, excluding: excluding)
-
-        default:
-            return await fetchAnalyzedAssets(
-                category: category,
-                limit: limit,
-                excluding: excluding,
-                sortOption: sortOption
-            )
+        if category == .longVideos {
+            // Biggest first is the only order that makes sense here
+            return Self.firstAssets(in: longVideoResult(), limit: limit, excluding: excluding)
         }
+
+        let identifiers = await cacheManager.identifiers(matching: category)
+            .filter { !excluding.contains($0) }
+        guard !identifiers.isEmpty else { return [] }
+
+        let options = PHFetchOptions()
+        if sortOption != .random {
+            options.sortDescriptors = sortOption.sortDescriptors
+        }
+        let result = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: options)
+
+        if sortOption == .random {
+            let indices = Array(0..<result.count).shuffled().prefix(limit)
+            return indices.map { result.object(at: $0) }
+        }
+        return Self.firstAssets(in: result, limit: limit, excluding: excluding)
     }
 
-    // MARK: - Fetch Assets for Person
+    // MARK: - People Albums
 
     func fetchAssetsForPerson(
         _ person: PersonAlbum,
@@ -67,139 +77,19 @@ final class SmartCategoryService {
         return peopleService.fetchAssets(for: person, limit: limit, excluding: excluding)
     }
 
-    // MARK: - Counts
-
-    func getCount(for category: SmartCategory) -> Int {
-        if category == .people {
-            return peopleService.fetchPeopleAlbums().reduce(0) { $0 + $1.assetCount }
-        }
-        return cacheManager.getAssetIdentifiers(matching: category).count
-    }
-
-    func getCategoryCounts() -> [SmartCategory: Int] {
-        let stats = cacheManager.getCacheStatistics()
-        var counts = stats.byCategory
-        counts[.people] = peopleService.fetchPeopleAlbums().reduce(0) { $0 + $1.assetCount }
-        return counts
-    }
-
-    func getCategoryCountsAsync() async -> [SmartCategory: Int] {
-        let stats = await cacheManager.getCacheStatisticsAsync()
-        var counts = stats.byCategory
-        counts[.people] = peopleService.fetchPeopleAlbums().reduce(0) { $0 + $1.assetCount }
-        return counts
-    }
-
-    // MARK: - Analyze On-Demand
-
-    /// Analyzes a batch of assets that haven't been cached yet
-    func analyzeIfNeeded(assets: [PHAsset]) async -> [PhotoAnalysisResult] {
-        let uncachedIds = cacheManager.getUncachedIdentifiers(
-            from: assets.map { $0.localIdentifier }
-        )
-
-        if uncachedIds.isEmpty {
-            // All cached — return cached results
-            return assets.compactMap { cacheManager.getCachedResult(assetIdentifier: $0.localIdentifier) }
-        }
-
-        let uncachedAssets = assets.filter { uncachedIds.contains($0.localIdentifier) }
-        let newResults = await analysisService.analyzeBatch(assets: uncachedAssets)
-
-        // Combine cached + new results
-        var allResults = [PhotoAnalysisResult]()
-        for asset in assets {
-            if let cached = cacheManager.getCachedResult(assetIdentifier: asset.localIdentifier) {
-                allResults.append(cached)
-            } else if let newResult = newResults.first(where: { $0.assetIdentifier == asset.localIdentifier }) {
-                allResults.append(newResult)
-            }
-        }
-        return allResults
-    }
-
-    // MARK: - Duplicate Detection
-
-    func findDuplicates(among identifiers: [String]) async -> [[String]] {
-        // Load feature prints from cache
-        var featurePrints: [(id: String, observation: VNFeaturePrintObservation)] = []
-
-        for identifier in identifiers {
-            guard let result = cacheManager.getCachedResult(assetIdentifier: identifier),
-                  let data = result.featurePrintData,
-                  let observation = try? NSKeyedUnarchiver.unarchivedObject(
-                    ofClass: VNFeaturePrintObservation.self,
-                    from: data
-                  ) else {
-                continue
-            }
-            featurePrints.append((id: identifier, observation: observation))
-        }
-
-        guard featurePrints.count >= 2 else { return [] }
-
-        // Pairwise comparison — partition by month to reduce scope
-        var duplicateGroups = [[String]]()
-        var assigned = Set<String>()
-        let threshold = Constants.Analysis.duplicateDistanceThreshold
-
-        for i in 0..<featurePrints.count {
-            guard !assigned.contains(featurePrints[i].id) else { continue }
-
-            var group = [featurePrints[i].id]
-
-            for j in (i + 1)..<min(i + 500, featurePrints.count) {
-                guard !assigned.contains(featurePrints[j].id) else { continue }
-
-                var distance: Float = 0
-                do {
-                    try featurePrints[i].observation.computeDistance(&distance, to: featurePrints[j].observation)
-                    if distance < threshold {
-                        group.append(featurePrints[j].id)
-                    }
-                } catch {
-                    continue
-                }
-            }
-
-            if group.count > 1 {
-                assigned.formUnion(group)
-                duplicateGroups.append(group)
-            }
-        }
-
-        // Tag duplicates in cache
-        for group in duplicateGroups {
-            for id in group {
-                if var result = cacheManager.getCachedResult(assetIdentifier: id) {
-                    result.categories.insert(.duplicates)
-                    cacheManager.saveResult(result)
-                }
-            }
-        }
-
-        AppLogger.analysis.info("Found \(duplicateGroups.count) duplicate groups")
-        return duplicateGroups
-    }
-
     // MARK: - Private
 
-    private func fetchAnalyzedAssets(
-        category: SmartCategory,
-        limit: Int,
-        excluding: Set<String>,
-        sortOption: PhotoSortOption
-    ) async -> [PHAsset] {
-        let matchingIds = cacheManager.getAssetIdentifiers(matching: category)
-        let filteredIds = matchingIds.filter { !excluding.contains($0) }
+    private func longVideoResult() -> PHFetchResult<PHAsset> {
+        let options = PHFetchOptions()
+        options.predicate = NSPredicate(format: "duration >= %f", Constants.Analysis.longVideoDuration)
+        options.sortDescriptors = [NSSortDescriptor(key: "duration", ascending: false)]
+        options.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
+        return PHAsset.fetchAssets(with: .video, options: options)
+    }
 
-        guard !filteredIds.isEmpty else { return [] }
-
-        let idsToFetch = Array(filteredIds.prefix(limit * 2)) // Fetch extra in case some are gone
-        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: idsToFetch, options: nil)
-
+    private static func firstAssets(in result: PHFetchResult<PHAsset>, limit: Int, excluding: Set<String>) -> [PHAsset] {
         var assets = [PHAsset]()
-        fetchResult.enumerateObjects { asset, _, stop in
+        result.enumerateObjects { asset, _, stop in
             if !excluding.contains(asset.localIdentifier) {
                 assets.append(asset)
             }
@@ -207,37 +97,15 @@ final class SmartCategoryService {
                 stop.pointee = true
             }
         }
-
-        // Sort if needed
-        switch sortOption {
-        case .newestFirst:
-            assets.sort { ($0.creationDate ?? .distantPast) > ($1.creationDate ?? .distantPast) }
-        case .oldestFirst:
-            assets.sort { ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast) }
-        case .random:
-            assets.shuffle()
-        }
-
-        return Array(assets.prefix(limit))
-    }
-
-    private func fetchDuplicates(limit: Int, excluding: Set<String>) async -> [PHAsset] {
-        let matchingIds = cacheManager.getAssetIdentifiers(matching: .duplicates)
-        let filteredIds = matchingIds.filter { !excluding.contains($0) }
-
-        guard !filteredIds.isEmpty else { return [] }
-
-        let idsToFetch = Array(filteredIds.prefix(limit))
-        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: idsToFetch, options: nil)
-
-        var assets = [PHAsset]()
-        fetchResult.enumerateObjects { asset, _, stop in
-            assets.append(asset)
-            if assets.count >= limit {
-                stop.pointee = true
-            }
-        }
-
         return assets
+    }
+}
+
+private extension PHFetchResult where ObjectType == PHAsset {
+    var identifiers: [String] {
+        var ids = [String]()
+        ids.reserveCapacity(count)
+        enumerateObjects { asset, _, _ in ids.append(asset.localIdentifier) }
+        return ids
     }
 }

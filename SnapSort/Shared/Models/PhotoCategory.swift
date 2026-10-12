@@ -2,7 +2,7 @@
 //  PhotoCategory.swift
 //  SnapSort
 //
-//  Photo categories for filtering
+//  Library filters for the review deck
 //
 
 import Photos
@@ -10,13 +10,13 @@ import SwiftUI
 
 enum PhotoCategory: String, CaseIterable, Identifiable {
     case all = "All Photos"
+    case videos = "Videos"
     case screenshots = "Screenshots"
     case selfies = "Selfies"
     case livePhotos = "Live Photos"
     case portraits = "Portrait Mode"
     case panoramas = "Panoramas"
     case bursts = "Bursts"
-    case receipts = "Receipts & Docs"
     case recentlyAdded = "Recently Added"
     case favorites = "Favorites"
 
@@ -25,45 +25,15 @@ enum PhotoCategory: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .all: return "photo.on.rectangle"
+        case .videos: return "video"
         case .screenshots: return "camera.viewfinder"
         case .selfies: return "person.crop.square"
         case .livePhotos: return "livephoto"
-        case .portraits: return "person.crop.circle"
+        case .portraits: return "cube"
         case .panoramas: return "pano"
         case .bursts: return "square.stack.3d.up"
-        case .receipts: return "doc.text.viewfinder"
         case .recentlyAdded: return "clock.arrow.circlepath"
         case .favorites: return "heart"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .all: return AppColors.primary
-        case .screenshots: return .orange
-        case .selfies: return .pink
-        case .livePhotos: return .yellow
-        case .portraits: return .purple
-        case .panoramas: return .cyan
-        case .bursts: return .green
-        case .receipts: return .gray
-        case .recentlyAdded: return .blue
-        case .favorites: return .red
-        }
-    }
-
-    var description: String {
-        switch self {
-        case .all: return "Review all your photos"
-        case .screenshots: return "Screenshots from your device"
-        case .selfies: return "Photos taken with front camera"
-        case .livePhotos: return "Photos with motion"
-        case .portraits: return "Photos with depth effect"
-        case .panoramas: return "Wide panoramic photos"
-        case .bursts: return "Burst photo sequences"
-        case .receipts: return "Documents and text-heavy images"
-        case .recentlyAdded: return "Photos added in the last 30 days"
-        case .favorites: return "Photos you've marked as favorites"
         }
     }
 
@@ -78,187 +48,145 @@ enum PhotoCategory: String, CaseIterable, Identifiable {
         case .bursts: return .smartAlbumBursts
         case .recentlyAdded: return .smartAlbumRecentlyAdded
         case .favorites: return .smartAlbumFavorites
-        default: return nil
+        case .all, .videos: return nil
         }
     }
 
-    /// Returns media subtype filter for this category
-    var mediaSubtypes: PHAssetMediaSubtype? {
-        switch self {
-        case .screenshots: return .photoScreenshot
-        case .livePhotos: return .photoLive
-        case .portraits: return .photoDepthEffect
-        case .panoramas: return .photoPanorama
-        default: return nil
-        }
+    var mediaType: PHAssetMediaType {
+        self == .videos ? .video : .image
     }
 }
 
 // MARK: - Photo Category Service
-class PhotoCategoryService {
+
+final class PhotoCategoryService: @unchecked Sendable {
     static let shared = PhotoCategoryService()
 
     private init() {}
 
-    /// Fetches photos from a specific category
+    /// Returns up to `limit` items from a category in sort order, skipping
+    /// excluded identifiers. Walks the lazy fetch result instead of using
+    /// `fetchLimit`, so already-reviewed photos don't exhaust the window.
     func fetchAssets(
         category: PhotoCategory,
         limit: Int,
-        sortDescriptors: [NSSortDescriptor]
+        sortDescriptors: [NSSortDescriptor],
+        excluding: Set<String> = [],
+        dateRange: Range<Date>? = nil
     ) -> [PHAsset] {
-        // Use smart album if available
-        if let subtype = category.smartAlbumSubtype {
-            return fetchFromSmartAlbum(subtype: subtype, limit: limit, sortDescriptors: sortDescriptors)
-        }
+        guard let result = fetchResult(for: category, sortDescriptors: sortDescriptors, dateRange: dateRange) else { return [] }
 
-        // For "receipts", we'll use a predicate to find images with text
-        if category == .receipts {
-            return fetchPotentialDocuments(limit: limit, sortDescriptors: sortDescriptors)
-        }
-
-        // Default: fetch all photos
-        return fetchAllPhotos(limit: limit, sortDescriptors: sortDescriptors)
-    }
-
-    private func fetchFromSmartAlbum(
-        subtype: PHAssetCollectionSubtype,
-        limit: Int,
-        sortDescriptors: [NSSortDescriptor]
-    ) -> [PHAsset] {
-        let collections = PHAssetCollection.fetchAssetCollections(
-            with: .smartAlbum,
-            subtype: subtype,
-            options: nil
-        )
-
-        guard let collection = collections.firstObject else {
-            return []
-        }
-
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = sortDescriptors
-        fetchOptions.fetchLimit = limit
-        fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
-
-        let result = PHAsset.fetchAssets(in: collection, options: fetchOptions)
         var assets = [PHAsset]()
-        result.enumerateObjects { asset, _, _ in
-            assets.append(asset)
+        assets.reserveCapacity(limit)
+        result.enumerateObjects { asset, _, stop in
+            if !excluding.contains(asset.localIdentifier) {
+                assets.append(asset)
+            }
+            if assets.count >= limit {
+                stop.pointee = true
+            }
         }
         return assets
     }
 
-    private func fetchPotentialDocuments(limit: Int, sortDescriptors: [NSSortDescriptor]) -> [PHAsset] {
-        // Fetch screenshots as they often contain documents
-        // In a full implementation, you'd use Vision framework to detect text
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = sortDescriptors
-        fetchOptions.fetchLimit = limit
-        fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
-
-        // Filter for screenshots (often contain receipts, docs, QR codes)
-        fetchOptions.predicate = NSPredicate(
-            format: "(mediaSubtypes & %d) != 0",
-            PHAssetMediaSubtype.photoScreenshot.rawValue
-        )
-
-        let result = PHAsset.fetchAssets(with: .image, options: fetchOptions)
-        var assets = [PHAsset]()
-        result.enumerateObjects { asset, _, _ in
-            assets.append(asset)
-        }
-        return assets
-    }
-
-    private func fetchAllPhotos(limit: Int, sortDescriptors: [NSSortDescriptor]) -> [PHAsset] {
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = sortDescriptors
-        fetchOptions.fetchLimit = limit
-        fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
-
-        let result = PHAsset.fetchAssets(with: .image, options: fetchOptions)
-        var assets = [PHAsset]()
-        result.enumerateObjects { asset, _, _ in
-            assets.append(asset)
-        }
-        return assets
-    }
-
-    /// Fetches random photos from a category without loading the full result into memory
+    /// Random items from a category without loading the whole result into memory
     func fetchRandomAssets(
         category: PhotoCategory,
         count: Int,
-        excluding: Set<String>
+        excluding: Set<String>,
+        dateRange: Range<Date>? = nil
     ) -> [PHAsset] {
-        let fetchOptions = PHFetchOptions()
-        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
+        guard let result = fetchResult(
+            for: category,
+            sortDescriptors: [NSSortDescriptor(key: "creationDate", ascending: false)],
+            dateRange: dateRange
+        ) else { return [] }
 
-        let result: PHFetchResult<PHAsset>
-
-        if let subtype = category.smartAlbumSubtype {
-            let collections = PHAssetCollection.fetchAssetCollections(
-                with: .smartAlbum, subtype: subtype, options: nil
-            )
-            guard let collection = collections.firstObject else { return [] }
-            result = PHAsset.fetchAssets(in: collection, options: fetchOptions)
-        } else if category == .receipts {
-            fetchOptions.predicate = NSPredicate(
-                format: "(mediaSubtypes & %d) != 0",
-                PHAssetMediaSubtype.photoScreenshot.rawValue
-            )
-            result = PHAsset.fetchAssets(with: .image, options: fetchOptions)
-        } else {
-            result = PHAsset.fetchAssets(with: .image, options: fetchOptions)
-        }
-
-        let totalCount = result.count
-        guard totalCount > 0 else { return [] }
+        let total = result.count
+        guard total > 0 else { return [] }
 
         var selected = [PHAsset]()
-        var usedIndices = Set<Int>()
-        let maxAttempts = min(count * 3, totalCount)
+        var used = Set<Int>()
         var attempts = 0
-
-        while selected.count < count && attempts < maxAttempts {
-            let randomIndex = Int.random(in: 0..<totalCount)
-            guard !usedIndices.contains(randomIndex) else {
-                attempts += 1
-                continue
-            }
-            usedIndices.insert(randomIndex)
+        while selected.count < count, attempts < count * 6, used.count < total {
             attempts += 1
-
-            let asset = result.object(at: randomIndex)
+            let index = Int.random(in: 0..<total)
+            guard used.insert(index).inserted else { continue }
+            let asset = result.object(at: index)
             if !excluding.contains(asset.localIdentifier) {
                 selected.append(asset)
+            }
+        }
+
+        // Most of the category has been reviewed — sweep from a random start instead
+        if selected.count < count {
+            let start = Int.random(in: 0..<total)
+            for offset in 0..<total where selected.count < count {
+                let index = (start + offset) % total
+                guard !used.contains(index) else { continue }
+                let asset = result.object(at: index)
+                if !excluding.contains(asset.localIdentifier) {
+                    selected.append(asset)
+                }
             }
         }
 
         return selected
     }
 
-    /// Gets the count of photos in a category
-    func getCount(for category: PhotoCategory) -> Int {
+    /// The years that have at least one item, newest first
+    func availableYears() -> [Int] {
+        let calendar = Calendar.current
+        func edgeDate(ascending: Bool) -> Date? {
+            let options = PHFetchOptions()
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: ascending)]
+            options.fetchLimit = 1
+            options.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
+            return PHAsset.fetchAssets(with: options).firstObject?.creationDate
+        }
+        guard let oldest = edgeDate(ascending: true), let newest = edgeDate(ascending: false) else { return [] }
+        let first = calendar.component(.year, from: oldest)
+        let last = calendar.component(.year, from: newest)
+        guard first <= last else { return [] }
+        return Array((first...last).reversed())
+    }
+
+    private func fetchResult(
+        for category: PhotoCategory,
+        sortDescriptors: [NSSortDescriptor],
+        dateRange: Range<Date>?
+    ) -> PHFetchResult<PHAsset>? {
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.sortDescriptors = sortDescriptors.isEmpty ? nil : sortDescriptors
+        fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
+        if let dateRange {
+            fetchOptions.predicate = NSPredicate(
+                format: "creationDate >= %@ AND creationDate < %@",
+                dateRange.lowerBound as NSDate,
+                dateRange.upperBound as NSDate
+            )
+        }
+
         if let subtype = category.smartAlbumSubtype {
             let collections = PHAssetCollection.fetchAssetCollections(
                 with: .smartAlbum,
                 subtype: subtype,
                 options: nil
             )
-            guard let collection = collections.firstObject else { return 0 }
-
-            let fetchOptions = PHFetchOptions()
-            fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
-            return PHAsset.fetchAssets(in: collection, options: fetchOptions).count
+            guard let collection = collections.firstObject else { return nil }
+            return PHAsset.fetchAssets(in: collection, options: fetchOptions)
         }
 
-        if category == .all {
-            let fetchOptions = PHFetchOptions()
-            fetchOptions.includeAssetSourceTypes = [.typeUserLibrary, .typeCloudShared, .typeiTunesSynced]
-            return PHAsset.fetchAssets(with: .image, options: fetchOptions).count
-        }
+        return PHAsset.fetchAssets(with: category.mediaType, options: fetchOptions)
+    }
+}
 
-        return 0
+extension Int {
+    /// January 1 of this year up to January 1 of the next
+    var yearRange: Range<Date>? {
+        let calendar = Calendar.current
+        guard let start = calendar.date(from: DateComponents(year: self, month: 1, day: 1)),
+              let end = calendar.date(byAdding: .year, value: 1, to: start) else { return nil }
+        return start..<end
     }
 }

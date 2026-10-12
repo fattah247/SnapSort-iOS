@@ -6,211 +6,221 @@
 //
 import SwiftUI
 import Photos
-import CoreData
-import OSLog
 
 enum BookmarkSortOption: String, CaseIterable {
     case dateAdded = "Date Added"
-    case photoDate = "Photo Date"
+    case photoDate = "Date Taken"
     case fileSize = "File Size"
 
-    var icon: String {
-        switch self {
-        case .dateAdded: return "clock"
-        case .photoDate: return "calendar"
-        case .fileSize: return "doc"
-        }
+    var descendingLabel: String {
+        self == .fileSize ? "Largest First" : "Newest First"
+    }
+
+    var ascendingLabel: String {
+        self == .fileSize ? "Smallest First" : "Oldest First"
     }
 }
 
 struct BookmarksView: View {
     @EnvironmentObject var bookmarkManager: CoreDataBookmarkManager
-    @EnvironmentObject var photoService: PhotoLibraryService
-    @EnvironmentObject var haptic: HapticService
     @EnvironmentObject var appState: AppStateManager
 
-    @State private var selectedPhoto: PHAsset?
-    @State private var sortOption: BookmarkSortOption = .dateAdded
-    @State private var sortAscending = false
-    @State private var showSortMenu = false
+    @AppStorage("bookmarkSortOption") private var sortOption: BookmarkSortOption = .dateAdded
+    @AppStorage("bookmarkSortDescending") private var sortDescending = true
+    @State private var selectedAsset: PHAsset?
+    @State private var fileSizes: [String: Int64] = [:]
+    @State private var isSelecting = false
+    @State private var selection = Set<String>()
 
     private var sortedAssets: [PHAsset] {
+        // The manager returns newest bookmark first
         let assets = bookmarkManager.bookmarkedAssets
-        let sorted: [PHAsset]
+        let ascending: [PHAsset]
 
         switch sortOption {
         case .dateAdded:
-            sorted = assets // Already sorted by date added from Core Data
+            ascending = assets.reversed()
         case .photoDate:
-            sorted = assets.sorted { ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast) }
+            ascending = assets.sorted { ($0.creationDate ?? .distantPast) < ($1.creationDate ?? .distantPast) }
         case .fileSize:
-            sorted = assets.sorted { $0.fileSize < $1.fileSize }
+            ascending = assets.sorted { (fileSizes[$0.localIdentifier] ?? 0) < (fileSizes[$1.localIdentifier] ?? 0) }
         }
 
-        return sortAscending ? sorted : sorted.reversed()
+        return sortDescending ? ascending.reversed() : ascending
     }
+
+    private var isEmpty: Bool { bookmarkManager.bookmarkedAssets.isEmpty }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppColors.groupedBackground.ignoresSafeArea()
-
-                if bookmarkManager.bookmarkedAssets.isEmpty {
-                    EmptyBookmarksView(onStartReviewing: {
-                        appState.activeTab = .review
-                    })
-                } else {
-                    VStack(spacing: 0) {
-                        // Sort toolbar
-                        sortToolbar
-                            .padding(.horizontal, AppSpacing.md)
-                            .padding(.vertical, AppSpacing.xs)
-
-                        // Grid
-                        bookmarkGrid
-                    }
-                }
-            }
-            .navigationTitle("Bookmarks")
-            .sheet(item: $selectedPhoto) { asset in
-                PhotoDetailView(asset: asset)
-            }
-        }
-    }
-
-    // MARK: - Sort Toolbar
-    private var sortToolbar: some View {
-        HStack {
-            // Count
-            Text("\(bookmarkManager.bookmarkedAssets.count) photos")
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
-
-            Spacer()
-
-            // Sort button
-            Menu {
-                ForEach(BookmarkSortOption.allCases, id: \.self) { option in
-                    Button(action: {
-                        withAnimation(.appSpring) {
-                            if sortOption == option {
-                                sortAscending.toggle()
-                            } else {
-                                sortOption = option
-                                sortAscending = false
-                            }
-                        }
-                        haptic.impact(.light)
-                    }) {
-                        HStack {
-                            Image(systemName: option.icon)
-                            Text(option.rawValue)
-                            if sortOption == option {
-                                Spacer()
-                                Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: AppSpacing.xxs) {
-                    Image(systemName: sortOption.icon)
-                    Text(sortOption.rawValue)
-                    Image(systemName: sortAscending ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .font(AppTypography.labelSmall)
-                .foregroundColor(AppColors.primary)
-                .padding(.horizontal, AppSpacing.sm)
-                .padding(.vertical, AppSpacing.xs)
-                .background(AppColors.primary.opacity(0.1))
-                .clipShape(Capsule())
-            }
-        }
-    }
-
-    // MARK: - Bookmark Grid
-    private var bookmarkGrid: some View {
-        ScrollView {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 110), spacing: AppSpacing.xs)],
-                spacing: AppSpacing.xs
-            ) {
-                ForEach(sortedAssets) { asset in
-                    BookmarkItemView(asset: asset)
-                        .onTapGesture { selectedPhoto = asset }
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .padding(AppSpacing.md)
-            .animation(.appSpring, value: sortOption)
-            .animation(.appSpring, value: sortAscending)
-        }
-    }
-}
-
-// MARK: - Bookmark Item View
-struct BookmarkItemView: View {
-    let asset: PHAsset
-    @EnvironmentObject var bookmarkManager: CoreDataBookmarkManager
-    @EnvironmentObject var photoService: PhotoLibraryService
-    @EnvironmentObject var haptic: HapticService
-    @State private var image: UIImage?
-    @State private var isPressed = false
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Image
             Group {
-                if let image = image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
+                if isEmpty {
+                    emptyState
                 } else {
-                    ZStack {
-                        AppColors.secondaryBackground
-                        ProgressView()
-                            .tint(AppColors.textTertiary)
+                    grid
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppColors.groupedBackground)
+            .navigationTitle(isSelecting ? selectionTitle : "Bookmarks")
+            .navigationBarTitleDisplayMode(isSelecting ? .inline : .large)
+            .toolbar {
+                if !isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(isSelecting ? "Done" : "Select") {
+                            withAnimation { toggleSelecting() }
+                        }
+                        .fontWeight(isSelecting ? .semibold : .regular)
+                    }
+                    if !isSelecting {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            sortMenu
+                        }
                     }
                 }
             }
-            .frame(width: 110, height: 110)
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
-
-            // Bookmark button
-            Button {
-                haptic.impact(.medium)
-                withAnimation(.appSpring) {
-                    bookmarkManager.toggleBookmark(assetIdentifier: asset.localIdentifier)
-                }
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 32, height: 32)
-
-                    Image(systemName: "bookmark.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppColors.bookmark)
+            .safeAreaInset(edge: .bottom) {
+                if isSelecting {
+                    selectionBar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .padding(AppSpacing.xxs)
+            .sheet(item: $selectedAsset) { asset in
+                PhotoDetailView(asset: asset) {
+                    Spacer()
+                    Button("Remove Bookmark", role: .destructive) {
+                        bookmarkManager.setBookmarked(false, assetIdentifier: asset.localIdentifier)
+                        selectedAsset = nil
+                    }
+                }
+            }
+            .task(id: sortOption) {
+                if sortOption == .fileSize {
+                    await loadFileSizes()
+                }
+            }
+            .onChange(of: isEmpty) { _, empty in
+                if empty { isSelecting = false }
+            }
         }
-        .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isPressed)
-        .task { await loadImage() }
     }
 
-    private func loadImage() async {
-        image = await photoService.loadImage(
-            for: asset,
-            size: CGSize(width: 220, height: 220)
-        )
+    private var selectionTitle: String {
+        selection.isEmpty ? "Select Items" : "\(selection.count) Selected"
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        MascotMessage(
+            mood: .curious,
+            title: "No bookmarks yet",
+            message: "Swipe right on a photo you love and it'll land here."
+        ) {
+            SmallChunkyButton(title: "Start Sorting", systemImage: "rectangle.stack") {
+                appState.activeTab = .review
+            }
+        }
+    }
+
+    // MARK: - Sort Menu
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("Sort By", selection: $sortOption) {
+                ForEach(BookmarkSortOption.allCases, id: \.self) { option in
+                    Text(option.rawValue).tag(option)
+                }
+            }
+            Picker("Order", selection: $sortDescending) {
+                Text(sortOption.descendingLabel).tag(true)
+                Text(sortOption.ascendingLabel).tag(false)
+            }
+        } label: {
+            Label("Sort", systemImage: "arrow.up.arrow.down")
+        }
+    }
+
+    // MARK: - Grid
+
+    private var grid: some View {
+        ScrollView {
+            LazyVGrid(columns: PhotoGrid.columns, spacing: AppSpacing.gridSpacing) {
+                ForEach(sortedAssets) { asset in
+                    Button {
+                        if isSelecting {
+                            toggle(asset)
+                        } else {
+                            selectedAsset = asset
+                        }
+                    } label: {
+                        AssetGridCell(
+                            asset: asset,
+                            isSelected: isSelecting ? selection.contains(asset.localIdentifier) : nil
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        if !isSelecting {
+                            Button(role: .destructive) {
+                                bookmarkManager.setBookmarked(false, assetIdentifier: asset.localIdentifier)
+                            } label: {
+                                Label("Remove Bookmark", systemImage: "bookmark.slash")
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, AppSpacing.gridSpacing)
+
+            Text("^[\(bookmarkManager.bookmarkedAssets.count) bookmark](inflect: true)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.vertical, AppSpacing.lg)
+        }
+        .animation(.default, value: sortOption)
+        .animation(.default, value: sortDescending)
+    }
+
+    // MARK: - Selection
+
+    private var selectionBar: some View {
+        GridActionBar {
+            Button(selection.count == bookmarkManager.bookmarkedAssets.count ? "Deselect All" : "Select All") {
+                if selection.count == bookmarkManager.bookmarkedAssets.count {
+                    selection.removeAll()
+                } else {
+                    selection = Set(bookmarkManager.bookmarkedAssets.map(\.localIdentifier))
+                }
+            }
+            Spacer()
+            Button(role: .destructive) {
+                bookmarkManager.removeBookmarks(assetIdentifiers: selection)
+                selection.removeAll()
+                withAnimation { isSelecting = false }
+            } label: {
+                Text(selection.isEmpty ? "Remove" : "Remove \(selection.count)")
+            }
+            .disabled(selection.isEmpty)
+        }
+    }
+
+    private func toggleSelecting() {
+        isSelecting.toggle()
+        selection.removeAll()
+    }
+
+    private func toggle(_ asset: PHAsset) {
+        if !selection.insert(asset.localIdentifier).inserted {
+            selection.remove(asset.localIdentifier)
+        }
+    }
+
+    private func loadFileSizes() async {
+        for asset in bookmarkManager.bookmarkedAssets where fileSizes[asset.localIdentifier] == nil {
+            guard !Task.isCancelled else { return }
+            fileSizes[asset.localIdentifier] = await asset.fetchFileSize()
+        }
     }
 }
 

@@ -10,23 +10,21 @@ import Photos
 
 struct PeoplePickerView: View {
     let albums: [PersonAlbum]
-    let onSelectPerson: (PersonAlbum) -> Void
-    let onDeleteAll: (PersonAlbum) -> Void
+    let onTrashAll: (PersonAlbum) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: AppSpacing.md) {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: AppSpacing.md) {
                 ForEach(albums) { person in
-                    PersonBubble(
-                        person: person,
-                        onTap: { onSelectPerson(person) },
-                        onDeleteAll: { onDeleteAll(person) }
-                    )
+                    PersonBubble(person: person) {
+                        onTrashAll(person)
+                    }
                 }
             }
             .padding(.horizontal, AppSpacing.md)
-            .padding(.vertical, AppSpacing.xs)
+            .padding(.vertical, AppSpacing.sm)
         }
+        .scrollIndicators(.hidden)
     }
 }
 
@@ -34,76 +32,67 @@ struct PeoplePickerView: View {
 
 struct PersonBubble: View {
     let person: PersonAlbum
-    let onTap: () -> Void
-    let onDeleteAll: () -> Void
+    let onTrashAll: () -> Void
 
     @EnvironmentObject var photoService: PhotoLibraryService
+    @Environment(\.displayScale) private var displayScale
     @State private var thumbnail: UIImage?
-    @State private var showDeleteConfirmation = false
+    @State private var showTrashConfirmation = false
+
+    private let diameter: CGFloat = 64
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: AppSpacing.xs) {
-                // Circular thumbnail
-                ZStack {
-                    Circle()
-                        .fill(AppColors.primary.opacity(0.1))
-                        .frame(width: 64, height: 64)
-
-                    if let thumbnail {
-                        Image(uiImage: thumbnail)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 64, height: 64)
-                            .clipShape(Circle())
-                    } else {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(AppColors.primary.opacity(0.5))
+        NavigationLink(value: CategorySelection.person(id: person.id, name: person.name)) {
+            VStack(spacing: AppSpacing.xxs) {
+                AppColors.placeholder
+                    .overlay {
+                        if let thumbnail {
+                            Image(uiImage: thumbnail)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Image(systemName: "person.fill")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
+                    .frame(width: diameter, height: diameter)
+                    .clipShape(Circle())
 
-                    // Count badge
-                    Text("\(person.assetCount)")
-                        .font(AppTypography.badge)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule()
-                                .fill(AppColors.primary)
-                        )
-                        .offset(x: 20, y: -24)
-                }
-
-                // Name
                 Text(person.name)
-                    .font(AppTypography.labelSmall)
-                    .foregroundColor(AppColors.textPrimary)
+                    .font(.footnote)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
-                    .frame(width: 70)
+
+                Text(person.assetCount, format: .number)
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
             }
+            .frame(width: 76)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(person.name)
+        .accessibilityValue("\(person.assetCount) photos")
+        .accessibilityAddTraits(.isButton)
         .contextMenu {
-            Button(action: onTap) {
-                Label("Review Photos", systemImage: "photo.stack")
-            }
             Button(role: .destructive) {
-                showDeleteConfirmation = true
+                showTrashConfirmation = true
             } label: {
-                Label("Delete All Photos", systemImage: "trash")
+                Label("Move All to Trash", systemImage: "trash")
             }
         }
         .confirmationDialog(
-            "Delete all photos of \(person.name)?",
-            isPresented: $showDeleteConfirmation,
+            "Move all \(person.assetCount) photos of \(person.name) to Trash?",
+            isPresented: $showTrashConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Delete \(person.assetCount) Photos", role: .destructive) {
-                onDeleteAll()
+            Button("Move to Trash", role: .destructive) {
+                onTrashAll()
             }
         } message: {
-            Text("This will move all \(person.assetCount) photos of \(person.name) to the trash.")
+            Text("Nothing is deleted until you empty the Trash.")
         }
         .task {
             await loadThumbnail()
@@ -112,7 +101,7 @@ struct PersonBubble: View {
 
     private func loadThumbnail() async {
         guard let keyAsset = person.keyAsset else { return }
-        let size = CGSize(width: 128, height: 128) // 2x for retina
-        thumbnail = await photoService.loadImage(for: keyAsset, size: size)
+        let side = diameter * displayScale
+        thumbnail = await photoService.loadImage(for: keyAsset, size: CGSize(width: side, height: side))
     }
 }

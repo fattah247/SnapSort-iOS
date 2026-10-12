@@ -8,12 +8,12 @@ import CoreData
 
 @objc(BookmarkEntity)
 class BookmarkEntity: NSManagedObject {
-    @NSManaged var assetIdentifier: String
-    @NSManaged var dateAdded: Date
-    @NSManaged var id: UUID
+    // Optional to match the model — avoids crashing on rows with missing values
+    @NSManaged var assetIdentifier: String?
+    @NSManaged var dateAdded: Date?
+    @NSManaged var id: UUID?
 
     @nonobjc class func fetchRequest() -> NSFetchRequest<BookmarkEntity> {
         NSFetchRequest<BookmarkEntity>(entityName: "BookmarkEntity")
     }
 }
-

@@ -27,7 +27,15 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
     private let imageManager = PHCachingImageManager()
 
     init() {
-        imageManager.allowsCachingHighQualityImages = true
+        // Disable high-quality caching — PHCachingImageManager would otherwise
+        // keep full-resolution decoded images in memory indefinitely with no
+        // eviction policy, causing unbounded memory growth on large libraries.
+        imageManager.allowsCachingHighQualityImages = false
+    }
+
+    deinit {
+        // Release all cached image data when the service is deallocated.
+        imageManager.stopCachingImagesForAllAssets()
     }
 
     func requestAuthorization() async -> PHAuthorizationStatus {
@@ -35,6 +43,9 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
             PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
                 DispatchQueue.main.async {
                     self?.authorizationStatus = status
+                    if status == .authorized || status == .limited {
+                        NotificationCenter.default.post(name: .photoLibraryAccessGranted, object: nil)
+                    }
                     continuation.resume(returning: status)
                 }
             }
@@ -175,13 +186,18 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
                 resumeLock.lock()
                 defer { resumeLock.unlock() }
 
-                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                guard !hasResumed else { return }
 
-                if !hasResumed {
-                    if !isDegraded || image != nil {
-                        hasResumed = true
-                        continuation.resume(returning: image)
-                    }
+                let isDegraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                let isCancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let hasError = info?[PHImageErrorKey] != nil
+
+                // Resume immediately on: cancelled request, error, non-degraded result,
+                // or any result with an actual image — prevents the continuation from
+                // hanging if PHImageManager never delivers a final non-degraded callback.
+                if isCancelled || hasError || !isDegraded || image != nil {
+                    hasResumed = true
+                    continuation.resume(returning: isCancelled ? nil : image)
                 }
             }
         }
@@ -207,6 +223,19 @@ final class PhotoLibraryService: PhotoLibraryServiceProtocol {
             group.cancelAll()
             return nil
         }
+    }
+}
+
+extension Notification.Name {
+    /// Posted after the user grants photo library access
+    static let photoLibraryAccessGranted = Notification.Name("photoLibraryAccessGranted")
+}
+
+enum PhotoLibraryAccess {
+    /// Touching PhotoKit before this is true triggers the system permission prompt
+    static var isGranted: Bool {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        return status == .authorized || status == .limited
     }
 }
 

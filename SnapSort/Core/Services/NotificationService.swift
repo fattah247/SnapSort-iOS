@@ -5,71 +5,98 @@
 //  Created by Muhammad Abdul Fattah on 04/02/25.
 //
 import UserNotifications
-import Photos
-import CoreData
 import SwiftUI
 import OSLog
 
 protocol NotificationServiceProtocol: ObservableObject {
-    func setAuthorizationChangeHandler(_ handler: @escaping (Bool) -> Void)
     func requestAuthorization() async -> Bool
-    func scheduleNotifications(time: Date, repeatInterval: RepeatInterval)
+    func authorizationStatus() async -> UNAuthorizationStatus
+    func scheduleNotifications(
+        time: Date,
+        repeatInterval: RepeatInterval,
+        weekdays: [Weekday],
+        monthDay: Int
+    )
     func cancelAllNotifications()
 }
 
 final class NotificationService: NotificationServiceProtocol {
     private let center = UNUserNotificationCenter.current()
-    private var authObserver: NSObjectProtocol?
-
-    deinit {
-        if let authObserver {
-            NotificationCenter.default.removeObserver(authObserver)
-        }
-    }
 
     func requestAuthorization() async -> Bool {
-        let result = try? await center.requestAuthorization(options: [.alert, .sound])
+        let result = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
         return result ?? false
     }
 
-    func scheduleNotifications(time: Date, repeatInterval: RepeatInterval) {
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await center.notificationSettings().authorizationStatus
+    }
+
+    func scheduleNotifications(
+        time: Date,
+        repeatInterval: RepeatInterval,
+        weekdays: [Weekday],
+        monthDay: Int
+    ) {
         center.removeAllPendingNotificationRequests()
 
         let content = UNMutableNotificationContent()
-        content.title = "Photo Review Time"
-        content.body = "It's time to review your memories!"
+        content.title = LocalizedStrings.notificationTitle
+        content.body = LocalizedStrings.notificationBody
         content.sound = .default
 
-        let components = Calendar.current.dateComponents([.hour, .minute], from: time)
-        let trigger = UNCalendarNotificationTrigger(
-            dateMatching: components,
-            repeats: repeatInterval != .never
-        )
+        let timeComponents = Calendar.current.dateComponents([.hour, .minute], from: time)
 
-        let request = UNNotificationRequest(
-            identifier: "photo-review-reminder",
-            content: content,
-            trigger: trigger
-        )
-
-        center.add(request)
+        for (index, components) in triggerComponents(
+            base: timeComponents,
+            repeatInterval: repeatInterval,
+            weekdays: weekdays,
+            monthDay: monthDay
+        ).enumerated() {
+            let trigger = UNCalendarNotificationTrigger(
+                dateMatching: components,
+                repeats: repeatInterval != .never
+            )
+            let request = UNNotificationRequest(
+                identifier: "\(Constants.Notifications.reviewReminderID)-\(index)",
+                content: content,
+                trigger: trigger
+            )
+            center.add(request) { error in
+                if let error {
+                    AppLogger.general.error("Failed to schedule reminder: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
     }
 
     func cancelAllNotifications() {
         center.removeAllPendingNotificationRequests()
     }
 
-    func setAuthorizationChangeHandler(_ handler: @escaping (Bool) -> Void) {
-        // Remove previous observer to prevent stacking
-        if let authObserver {
-            NotificationCenter.default.removeObserver(authObserver)
-        }
-        authObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            handler(PHPhotoLibrary.authorizationStatus() == .authorized)
+    /// One trigger per firing pattern — weekly reminders need one per weekday.
+    func triggerComponents(
+        base: DateComponents,
+        repeatInterval: RepeatInterval,
+        weekdays: [Weekday],
+        monthDay: Int
+    ) -> [DateComponents] {
+        switch repeatInterval {
+        case .daily, .never:
+            return [base]
+        case .weekly:
+            let days = weekdays.isEmpty
+                ? [Weekday(rawValue: Calendar.current.component(.weekday, from: Date())) ?? .mon]
+                : weekdays
+            return days.map { day in
+                var components = base
+                components.weekday = day.rawValue
+                return components
+            }
+        case .monthly:
+            var components = base
+            components.day = monthDay
+            return [components]
         }
     }
 }

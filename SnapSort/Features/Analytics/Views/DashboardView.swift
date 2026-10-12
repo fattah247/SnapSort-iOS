@@ -4,184 +4,106 @@
 //
 //  Created by Muhammad Abdul Fattah on 03/02/25.
 //
-import Photos
-import CoreData
 import SwiftUI
-import OSLog
 
 struct DashboardView: View {
     @EnvironmentObject var analytics: CoreDataAnalyticsService
-    @State private var animateElements = false
-    @State private var selectedTimeFrame: TimeFrame = .allTime
 
-    enum TimeFrame: String, CaseIterable {
-        case thisWeek = "This Week"
-        case allTime = "All Time"
-    }
+    private let columns = [
+        GridItem(.flexible(), spacing: AppSpacing.sm),
+        GridItem(.flexible(), spacing: AppSpacing.sm)
+    ]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: AppSpacing.sectionSpacing) {
-                // Header
-                headerSection
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: AppSpacing.md) {
+                    greeting
 
-                // Main metrics
-                mainMetricsSection
+                    LazyVGrid(columns: columns, spacing: AppSpacing.sm) {
+                        MetricCard(
+                            title: "Space Cleared",
+                            systemImage: "internaldrive.fill",
+                            tint: AppColors.storage,
+                            value: analytics.totalSpaceCleared.storageText
+                        )
+                        MetricCard(
+                            title: "Streak",
+                            systemImage: "flame.fill",
+                            tint: AppColors.streak,
+                            value: Text("^[\(analytics.currentStreak) day](inflect: true)")
+                        )
+                        MetricCard(
+                            title: "Trashed",
+                            systemImage: "trash.fill",
+                            tint: AppColors.delete,
+                            value: analytics.totalDeleted.formatted()
+                        )
+                        MetricCard(
+                            title: "Bookmarked",
+                            systemImage: "bookmark.fill",
+                            tint: AppColors.keep,
+                            value: analytics.totalBookmarked.formatted()
+                        )
+                    }
 
-                // Weekly chart
-                WeeklyChartView(data: DayActivity.sampleWeek())
-                    .opacity(animateElements ? 1 : 0)
-                    .offset(y: animateElements ? 0 : 20)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2), value: animateElements)
+                    Text("Space Cleared counts photos you've deleted from the Trash. iOS keeps them in Recently Deleted for up to 30 days before the space is free.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, AppSpacing.xs)
 
-                // Stats grid
-                statsGridSection
+                    WeeklyChartView(data: analytics.weeklyActivity)
 
-                // Achievements
-                AchievementGrid(
-                    reviewed: analytics.totalReviewed,
-                    storage: analytics.totalStorageSaved,
-                    streak: analytics.currentStreak
-                )
-                .opacity(animateElements ? 1 : 0)
-                .offset(y: animateElements ? 0 : 20)
-                .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.4), value: animateElements)
+                    MilestonesView(
+                        reviewed: analytics.totalReviewed,
+                        storage: analytics.totalSpaceCleared,
+                        streak: analytics.currentStreak
+                    )
+                }
+                .padding(.horizontal, AppSpacing.md)
+                .padding(.bottom, AppSpacing.lg)
+                .frame(maxWidth: 720)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, AppSpacing.md)
-            .padding(.vertical, AppSpacing.lg)
-        }
-        .background(AppColors.groupedBackground)
-        .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                animateElements = true
+            .background(AppColors.groupedBackground)
+            .navigationTitle("Stats")
+            .onAppear {
+                // The day may have rolled over since stats were last computed
+                analytics.refreshDerivedStats()
             }
         }
     }
 
-    // MARK: - Header Section
-    private var headerSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.xs) {
-            Text("Photo Insights")
-                .font(AppTypography.displaySmall)
-                .foregroundColor(AppColors.textPrimary)
-
-            Text("Track your photo organization progress")
-                .font(AppTypography.bodySmall)
-                .foregroundColor(AppColors.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(animateElements ? 1 : 0)
-    }
-
-    // MARK: - Main Metrics Section
-    private var mainMetricsSection: some View {
+    private var greeting: some View {
         HStack(spacing: AppSpacing.sm) {
-            // Storage Card
-            MetricCard(
-                title: "Storage Saved",
-                icon: "externaldrive.badge.plus",
-                value: analytics.totalStorageSaved.formatted(.byteCount(style: .file)),
-                gradient: AppColors.storageGradient
-            )
-            .scaleEffect(animateElements ? 1 : 0.9)
-            .opacity(animateElements ? 1 : 0)
-            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: animateElements)
+            Snappy(mood: analytics.currentStreak > 0 ? .cheer : .happy, size: 64)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greetingTitle)
+                    .font(.headline)
+                Text(greetingMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .cardStyle()
+        .accessibilityElement(children: .combine)
+    }
 
-            // Streak Card
-            MetricCard(
-                title: "Current Streak",
-                icon: "flame.fill",
-                value: "\(analytics.currentStreak) days",
-                gradient: AppColors.streakGradient
-            )
-            .scaleEffect(animateElements ? 1 : 0.9)
-            .opacity(animateElements ? 1 : 0)
-            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: animateElements)
+    private var greetingTitle: String {
+        switch analytics.currentStreak {
+        case 0: return analytics.totalReviewed == 0 ? "Ready when you are!" : "Welcome back!"
+        case 1: return "Day one — nice start!"
+        default: return "\(analytics.currentStreak) days in a row!"
         }
     }
 
-    // MARK: - Stats Grid Section
-    private var statsGridSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            Text("Statistics")
-                .font(AppTypography.headlineSmall)
-                .foregroundColor(AppColors.textPrimary)
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: AppSpacing.sm) {
-                StatBadge(
-                    title: "Reviewed",
-                    value: analytics.totalReviewed,
-                    icon: "checkmark.circle.fill",
-                    gradient: AppColors.reviewedGradient
-                )
-
-                StatBadge(
-                    title: "Deleted",
-                    value: analytics.totalDeleted,
-                    icon: "trash.fill",
-                    gradient: AppColors.deletedGradient
-                )
-
-                StatBadge(
-                    title: "Bookmarked",
-                    value: analytics.totalBookmarked,
-                    icon: "bookmark.fill",
-                    gradient: AppColors.bookmarkedGradient
-                )
-            }
+    private var greetingMessage: String {
+        if analytics.totalReviewed == 0 {
+            return "Sort a few photos and your progress will show up here."
         }
-        .opacity(animateElements ? 1 : 0)
-        .offset(y: animateElements ? 0 : 20)
-        .animation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.3), value: animateElements)
-    }
-}
-
-// MARK: - Stat Badge Component
-struct StatBadge: View {
-    let title: String
-    let value: Int64
-    let icon: String
-    let gradient: LinearGradient
-
-    @State private var displayValue: Int64 = 0
-
-    var body: some View {
-        VStack(spacing: AppSpacing.xs) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(gradient)
-                    .frame(width: 44, height: 44)
-
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.white)
-            }
-
-            // Value
-            Text("\(displayValue)")
-                .font(AppTypography.numberSmall)
-                .foregroundColor(AppColors.textPrimary)
-                .contentTransition(.numericText())
-
-            // Title
-            Text(title)
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, AppSpacing.sm)
-        .background(AppColors.secondaryBackground)
-        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.8)) {
-                displayValue = value
-            }
-        }
-        .onChange(of: value) { _, newValue in
-            withAnimation(.easeOut(duration: 0.3)) {
-                displayValue = newValue
-            }
-        }
+        return "You've sorted \(analytics.totalReviewed.formatted()) photos so far. Keep it up!"
     }
 }

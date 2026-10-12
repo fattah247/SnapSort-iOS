@@ -10,7 +10,7 @@ import SwiftUI
 import WidgetKit
 
 struct SnapSortWidgetsControl: ControlWidget {
-    static let kind: String = "com.fatarc.SnapSort.SnapSortWidgets"
+    static let kind: String = "com.canoe.snapsort.SnapSortWidgets"
 
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(

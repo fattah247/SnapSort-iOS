@@ -11,21 +11,18 @@ import OSLog
 
 final class BackgroundAnalysisScheduler {
     private let analysisService: PhotoAnalysisService
-    private let cacheManager: AnalysisCacheManager
-    private let peopleService: PeopleService
     private let photoService: any PhotoLibraryServiceProtocol
 
     static let taskIdentifier = Constants.Analysis.backgroundTaskIdentifier
 
+    /// Stored so the expiration handler can cancel the awaiting task too
+    private var completionTask: Task<Void, Never>?
+
     init(
         analysisService: PhotoAnalysisService,
-        cacheManager: AnalysisCacheManager,
-        peopleService: PeopleService,
         photoService: any PhotoLibraryServiceProtocol
     ) {
         self.analysisService = analysisService
-        self.cacheManager = cacheManager
-        self.peopleService = peopleService
         self.photoService = photoService
     }
 
@@ -83,14 +80,15 @@ final class BackgroundAnalysisScheduler {
             await performBackgroundAnalysis()
         }
 
-        // Handle expiration — clean cancel
-        task.expirationHandler = {
+        // Handle expiration — cancel both the analysis and the completion waiter
+        task.expirationHandler = { [weak self] in
             analysisTask.cancel()
+            self?.completionTask?.cancel()
             AppLogger.analysis.info("Background analysis expired — will resume next night")
         }
 
-        // Run analysis
-        Task {
+        // Store so the expiration handler can cancel it; awaits analysis then marks done
+        completionTask = Task {
             await analysisTask.value
             task.setTaskCompleted(success: true)
             AppLogger.analysis.info("Background analysis completed successfully")
@@ -99,66 +97,9 @@ final class BackgroundAnalysisScheduler {
 
     @MainActor
     private func performBackgroundAnalysis() async {
+        // A foreground scan already covers this
+        guard !analysisService.analysisProgress.isScanning else { return }
         AppLogger.analysis.info("Starting background analysis at \(Date(), privacy: .public)")
-
-        do {
-            // Fetch all photos
-            let allAssets = try await photoService.fetchAssets(options: .init(
-                limit: 0,
-                sortDescriptors: [NSSortDescriptor(key: "creationDate", ascending: false)]
-            ))
-
-            // Find uncached assets
-            let uncachedIds = cacheManager.getUncachedIdentifiers(
-                from: allAssets.map { $0.localIdentifier }
-            )
-
-            let uncachedAssets = allAssets.filter { uncachedIds.contains($0.localIdentifier) }
-
-            AppLogger.analysis.info("Background: \(uncachedAssets.count) photos to analyze")
-
-            guard !uncachedAssets.isEmpty else { return }
-
-            // Invalidate stale entries
-            cacheManager.invalidateStaleEntries(assets: Array(allAssets.prefix(500)))
-
-            // Process in batches
-            let batchSize = Constants.Analysis.backgroundBatchSize
-            for batchStart in stride(from: 0, to: uncachedAssets.count, by: batchSize) {
-                try Task.checkCancellation()
-
-                // Check thermal state — stop if device is too warm
-                let thermal = ProcessInfo.processInfo.thermalState
-                if thermal == .serious || thermal == .critical {
-                    AppLogger.analysis.warning("Background analysis paused — thermal state: \(String(describing: thermal), privacy: .public)")
-                    break
-                }
-
-                let batchEnd = min(batchStart + batchSize, uncachedAssets.count)
-                let batch = Array(uncachedAssets[batchStart..<batchEnd])
-
-                let _ = await analysisService.analyzeBatch(assets: batch)
-
-                // Small delay between batches to be gentle on resources
-                try await Task.sleep(nanoseconds: 200_000_000) // 200ms
-            }
-
-            // Run duplicate detection on analyzed photos
-            let allIds = cacheManager.getAllCachedResults().map { $0.assetIdentifier }
-            if allIds.count >= 2 {
-                let smartCategoryService = SmartCategoryService(
-                    analysisService: analysisService,
-                    cacheManager: cacheManager,
-                    peopleService: peopleService,
-                    photoService: photoService
-                )
-                let _ = await smartCategoryService.findDuplicates(among: allIds)
-            }
-
-        } catch is CancellationError {
-            AppLogger.analysis.info("Background analysis cancelled")
-        } catch {
-            AppLogger.analysis.error("Background analysis failed: \(error.localizedDescription, privacy: .public)")
-        }
+        await analysisService.scanLibrary(photoService: photoService)
     }
 }

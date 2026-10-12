@@ -5,8 +5,7 @@
 //  Created by Muhammad Abdul Fattah on 03/02/25.
 //
 import SwiftUI
-import Photos
-import CoreData
+import UserNotifications
 import OSLog
 
 protocol SettingsStoreProtocol {
@@ -22,80 +21,115 @@ protocol SettingsStoreProtocol {
     func saveSettings()
 }
 
+/// Settings apply immediately — there is no separate save step.
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    @Published var isNotificationsEnabled = false
-    @Published var notificationTime = Date()
-    @Published var repeatInterval: RepeatInterval = .daily
-    @Published var storageTarget: Int64 = 100 * 1024 * 1024  // 100 MB default
-    @Published var sortOption: PhotoSortOption = .random
-    @Published var showDeletionConfirmation = true
-    
-    // Added properties to support weekly and monthly selections:
-    @Published var selectedWeeklyDays: [Weekday] = []
-    @Published var selectedMonthlyDay: Int = 1
-    
+    @Published private(set) var isNotificationsEnabled = false { didSet { persist() } }
+    @Published var notificationTime = Date() { didSet { persist() } }
+    @Published var repeatInterval: RepeatInterval = .daily { didSet { persist() } }
+    @Published var storageTarget: Int64 = 100_000_000 { didSet { persist() } }
+    @Published var sortOption: PhotoSortOption = .random { didSet { persist() } }
+    @Published var showDeletionConfirmation = false { didSet { persist() } }
+    @Published var selectedWeeklyDays: [Weekday] = [] { didSet { persist() } }
+    @Published var selectedMonthlyDay: Int = 1 { didSet { persist() } }
+
+    /// True when the user has turned notifications off for the app in iOS Settings
+    @Published private(set) var notificationsDenied = false
+
+    nonisolated static let monthDayRange = 1...28
+    // Decimal megabytes, matching how file sizes are displayed
+    nonisolated static let storageTargetRange: ClosedRange<Int64> = 50_000_000...1_000_000_000
+    nonisolated static let storageTargetStep: Int64 = 50_000_000
+
     private var settingsStore: any SettingsStoreProtocol
-    private let trashManager: any TrashManagerProtocol
     private let notificationService: any NotificationServiceProtocol
-    
-    var hasUnsavedChanges: Bool {
-        settingsStore.isNotificationsEnabled     != isNotificationsEnabled
-        || settingsStore.notificationTime         != notificationTime
-        || settingsStore.repeatInterval           != repeatInterval
-        || settingsStore.storageTarget             != storageTarget
-        || settingsStore.sortOption               != sortOption
-        || settingsStore.showDeletionConfirmation != showDeletionConfirmation
-        || settingsStore.selectedWeeklyDays       != selectedWeeklyDays
-        || settingsStore.selectedMonthlyDay       != selectedMonthlyDay
-    }
-    
+    private var isLoading = false
+
     init(settingsStore: any SettingsStoreProtocol,
-         trashManager: any TrashManagerProtocol,
          notificationService: any NotificationServiceProtocol) {
         self.settingsStore = settingsStore
-        self.trashManager = trashManager
         self.notificationService = notificationService
         loadSettings()
     }
-    
+
     func loadSettings() {
+        isLoading = true
+        defer { isLoading = false }
         settingsStore.loadSettings()
         isNotificationsEnabled = settingsStore.isNotificationsEnabled
         notificationTime = settingsStore.notificationTime
         repeatInterval = settingsStore.repeatInterval
-        storageTarget = settingsStore.storageTarget
+        storageTarget = Self.snappedStorageTarget(settingsStore.storageTarget)
         sortOption = settingsStore.sortOption
         showDeletionConfirmation = settingsStore.showDeletionConfirmation
-        // Optionally load these if your store supports them:
         selectedWeeklyDays = settingsStore.selectedWeeklyDays
-        selectedMonthlyDay = settingsStore.selectedMonthlyDay
+        // Days 29–31 don't exist in every month, so reminders would silently skip
+        selectedMonthlyDay = min(max(settingsStore.selectedMonthlyDay, Self.monthDayRange.lowerBound), Self.monthDayRange.upperBound)
     }
-    
-    func saveSettings() {
+
+    /// Older builds stored binary megabytes (e.g. 104,857,600) — snap to the stepper grid
+    nonisolated static func snappedStorageTarget(_ value: Int64) -> Int64 {
+        let steps = (Double(value) / Double(storageTargetStep)).rounded()
+        let snapped = Int64(steps) * storageTargetStep
+        return min(max(snapped, storageTargetRange.lowerBound), storageTargetRange.upperBound)
+    }
+
+    // MARK: - Reminders
+
+    /// Turns reminders on (asking for permission if needed) or off.
+    func setRemindersEnabled(_ enabled: Bool) async {
+        guard enabled else {
+            isNotificationsEnabled = false
+            return
+        }
+
+        switch await notificationService.authorizationStatus() {
+        case .notDetermined:
+            let granted = await notificationService.requestAuthorization()
+            notificationsDenied = !granted
+            isNotificationsEnabled = granted
+        case .denied:
+            notificationsDenied = true
+            isNotificationsEnabled = false
+        default:
+            notificationsDenied = false
+            isNotificationsEnabled = true
+        }
+    }
+
+    /// Re-checks system permission, e.g. when returning from iOS Settings.
+    func refreshNotificationStatus() async {
+        let denied = await notificationService.authorizationStatus() == .denied
+        notificationsDenied = denied
+        if denied && isNotificationsEnabled {
+            isNotificationsEnabled = false
+        }
+    }
+
+    // MARK: - Persistence
+
+    private func persist() {
+        guard !isLoading else { return }
+
         settingsStore.isNotificationsEnabled = isNotificationsEnabled
         settingsStore.notificationTime = notificationTime
         settingsStore.repeatInterval = repeatInterval
         settingsStore.storageTarget = storageTarget
         settingsStore.sortOption = sortOption
         settingsStore.showDeletionConfirmation = showDeletionConfirmation
-        // Optionally save the new properties if needed:
         settingsStore.selectedWeeklyDays = selectedWeeklyDays
         settingsStore.selectedMonthlyDay = selectedMonthlyDay
         settingsStore.saveSettings()
-        
+
         if isNotificationsEnabled {
             notificationService.scheduleNotifications(
                 time: notificationTime,
-                repeatInterval: repeatInterval
+                repeatInterval: repeatInterval,
+                weekdays: selectedWeeklyDays,
+                monthDay: selectedMonthlyDay
             )
         } else {
             notificationService.cancelAllNotifications()
         }
     }
-    
-    func emptyTrash() {
-        trashManager.emptyTrash()
-    }
 }
-

@@ -2,152 +2,129 @@
 //  WeeklyChartView.swift
 //  SnapSort
 //
-//  Weekly activity bar chart
+//  Photos reviewed per day over the last week
 //
 
 import SwiftUI
+import Charts
 
 struct WeeklyChartView: View {
     let data: [DayActivity]
-    @State private var animateChart = false
+
+    @State private var selectedDate: Date?
+
+    private var totalReviewed: Int { data.reduce(0) { $0 + $1.reviewed } }
+    private var totalDeleted: Int { data.reduce(0) { $0 + $1.deleted } }
+    private var totalBookmarked: Int { data.reduce(0) { $0 + $1.bookmarked } }
+
+    private var selectedDay: DayActivity? {
+        guard let selectedDate else { return nil }
+        return data.first { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+    }
+
+    private var yUpperBound: Int {
+        // Keep a sensible scale when the week is empty or nearly so
+        max(data.map(\.reviewed).max() ?? 0, 4)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.sm) {
-            // Header
+            header
+
+            Chart(data) { day in
+                BarMark(
+                    x: .value("Day", day.date, unit: .day),
+                    y: .value("Reviewed", day.reviewed),
+                    width: .ratio(0.5)
+                )
+                .cornerRadius(4)
+                .foregroundStyle(AppColors.brand.opacity(isEmphasized(day) ? 1 : 0.3))
+                .accessibilityLabel(day.date.formatted(.dateTime.weekday(.wide)))
+                .accessibilityValue("\(day.reviewed) reviewed, \(day.deleted) trashed, \(day.bookmarked) bookmarked")
+            }
+            .chartXSelection(value: $selectedDate)
+            .chartYScale(domain: 0...yUpperBound)
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { _ in
+                    AxisValueLabel(format: .dateTime.weekday(.narrow), centered: true)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                    AxisGridLine()
+                    AxisValueLabel()
+                }
+            }
+            .frame(height: 160)
+            .overlay {
+                if totalReviewed == 0 {
+                    Text("No reviews this week")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Divider()
+
             HStack {
-                Text("This Week")
-                    .font(AppTypography.headlineSmall)
-                    .foregroundColor(AppColors.textPrimary)
-
+                breakdownItem(title: "Trashed", value: selectedDay?.deleted ?? totalDeleted, tint: AppColors.delete)
                 Spacer()
+                breakdownItem(title: "Bookmarked", value: selectedDay?.bookmarked ?? totalBookmarked, tint: AppColors.keep)
+            }
+        }
+        .cardStyle()
+    }
 
-                // Legend
-                HStack(spacing: AppSpacing.md) {
-                    LegendItem(color: AppColors.primary, label: "Reviewed")
-                    LegendItem(color: AppColors.danger, label: "Deleted")
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Last 7 Days")
+                .font(.headline)
+            Group {
+                if let selectedDay {
+                    Text("^[\(selectedDay.reviewed) photo](inflect: true) reviewed on \(selectedDay.date.formatted(.dateTime.weekday(.wide)))")
+                } else {
+                    Text("^[\(totalReviewed) photo](inflect: true) reviewed")
                 }
             }
-
-            // Chart
-            HStack(alignment: .bottom, spacing: AppSpacing.xs) {
-                ForEach(data) { day in
-                    DayBar(
-                        day: day,
-                        maxValue: maxValue,
-                        animate: animateChart
-                    )
-                }
-            }
-            .frame(height: 120)
-            .padding(.top, AppSpacing.xs)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
         }
-        .padding(AppSpacing.md)
-        .background(AppColors.secondaryBackground)
-        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
-        .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8).delay(0.2)) {
-                animateChart = true
-            }
-        }
+        .accessibilityElement(children: .combine)
     }
 
-    private var maxValue: Int {
-        let maxReviewed = data.map { $0.reviewed }.max() ?? 1
-        let maxDeleted = data.map { $0.deleted }.max() ?? 1
-        return max(maxReviewed, maxDeleted, 1)
-    }
-}
-
-// MARK: - Day Activity Model
-struct DayActivity: Identifiable {
-    let id = UUID()
-    let dayName: String
-    let reviewed: Int
-    let deleted: Int
-    let isToday: Bool
-
-    static func sampleWeek() -> [DayActivity] {
-        let calendar = Calendar.current
-        let today = Date()
-        let weekdaySymbols = calendar.shortWeekdaySymbols
-
-        return (0..<7).map { offset in
-            let date = calendar.date(byAdding: .day, value: -6 + offset, to: today)!
-            let weekday = calendar.component(.weekday, from: date) - 1
-            let isToday = calendar.isDateInToday(date)
-
-            return DayActivity(
-                dayName: String(weekdaySymbols[weekday].prefix(1)),
-                reviewed: Int.random(in: 0...20),
-                deleted: Int.random(in: 0...10),
-                isToday: isToday
-            )
-        }
-    }
-}
-
-// MARK: - Day Bar
-struct DayBar: View {
-    let day: DayActivity
-    let maxValue: Int
-    let animate: Bool
-
-    private var reviewedHeight: CGFloat {
-        guard maxValue > 0 else { return 0 }
-        return CGFloat(day.reviewed) / CGFloat(maxValue) * 80
+    private func isEmphasized(_ day: DayActivity) -> Bool {
+        guard let selectedDay else { return true }
+        return selectedDay.id == day.id
     }
 
-    private var deletedHeight: CGFloat {
-        guard maxValue > 0 else { return 0 }
-        return CGFloat(day.deleted) / CGFloat(maxValue) * 80
-    }
-
-    var body: some View {
-        VStack(spacing: AppSpacing.xxs) {
-            // Bars
-            HStack(alignment: .bottom, spacing: 2) {
-                // Reviewed bar
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(AppColors.primaryGradient)
-                    .frame(width: 14, height: animate ? max(reviewedHeight, 4) : 4)
-
-                // Deleted bar
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(AppColors.deleteGradient)
-                    .frame(width: 14, height: animate ? max(deletedHeight, 4) : 4)
-            }
-            .frame(height: 80, alignment: .bottom)
-
-            // Day label
-            Text(day.dayName)
-                .font(AppTypography.labelSmall)
-                .foregroundColor(day.isToday ? AppColors.primary : AppColors.textTertiary)
-                .fontWeight(day.isToday ? .bold : .regular)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Legend Item
-struct LegendItem: View {
-    let color: Color
-    let label: String
-
-    var body: some View {
-        HStack(spacing: 4) {
+    private func breakdownItem(title: String, value: Int, tint: Color) -> some View {
+        HStack(spacing: AppSpacing.xs) {
             Circle()
-                .fill(color)
+                .fill(tint)
                 .frame(width: 8, height: 8)
-
-            Text(label)
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
+                .accessibilityHidden(true)
+            Text(title)
+                .foregroundStyle(.secondary)
+            Text(value, format: .number)
+                .monospacedDigit()
         }
+        .font(.subheadline)
+        .accessibilityElement(children: .combine)
     }
 }
 
 #Preview {
-    WeeklyChartView(data: DayActivity.sampleWeek())
+    let calendar = Calendar.current
+    let today = calendar.startOfDay(for: Date())
+    let sample = (0..<7).map { offset in
+        DayActivity(
+            date: calendar.date(byAdding: .day, value: offset - 6, to: today)!,
+            bookmarked: [2, 0, 5, 3, 1, 8, 4][offset],
+            deleted: [6, 0, 9, 4, 2, 12, 7][offset]
+        )
+    }
+    return WeeklyChartView(data: sample)
         .padding()
-        .background(Color(.systemGroupedBackground))
+        .background(AppColors.groupedBackground)
 }

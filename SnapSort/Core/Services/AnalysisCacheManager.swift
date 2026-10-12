@@ -2,13 +2,18 @@
 //  AnalysisCacheManager.swift
 //  SnapSort
 //
-//  CoreData persistence layer for photo analysis results
+//  CoreData persistence layer for photo analysis results.
+//
+//  Everything the analysis pipeline touches runs on a private-queue context;
+//  only `getCachedResult` uses the view context, for main-thread lookups.
+//  `categories` is a Transformable blob, so filtering by category happens in
+//  Swift rather than in an NSPredicate.
 //
 
 import CoreData
 import Photos
 
-final class AnalysisCacheManager {
+final class AnalysisCacheManager: @unchecked Sendable {
     private let context: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
@@ -17,10 +22,12 @@ final class AnalysisCacheManager {
         self.backgroundContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         self.backgroundContext.persistentStoreCoordinator = context.persistentStoreCoordinator
         self.backgroundContext.automaticallyMergesChangesFromParent = true
+        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
-    // MARK: - Read
+    // MARK: - Main-thread lookup
 
+    /// Single-photo lookup for the review deck. Call on the main thread.
     func getCachedResult(assetIdentifier: String) -> PhotoAnalysisResult? {
         let request = PhotoAnalysisEntity.fetchRequest()
         request.predicate = NSPredicate(format: "assetIdentifier == %@", assetIdentifier)
@@ -34,158 +41,153 @@ final class AnalysisCacheManager {
         }
     }
 
-    func getAssetIdentifiers(matching category: SmartCategory) -> [String] {
-        let request = PhotoAnalysisEntity.fetchRequest()
-        // categories is a Transformable array of strings — use CONTAINS
-        request.predicate = NSPredicate(format: "ANY categories CONTAINS %@", category.rawValue)
+    // MARK: - Background reads
 
-        do {
-            return try context.fetch(request).map { $0.assetIdentifier }
-        } catch {
-            // Fallback: fetch all and filter in-memory
-            return getAllCachedResults()
-                .filter { $0.categories.contains(category) }
-                .map { $0.assetIdentifier }
+    func cachedIdentifiers() async -> Set<String> {
+        await backgroundContext.perform { [backgroundContext] in
+            let request = NSFetchRequest<NSDictionary>(entityName: "PhotoAnalysisEntity")
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = ["assetIdentifier"]
+            let rows = (try? backgroundContext.fetch(request)) ?? []
+            return Set(rows.compactMap { $0["assetIdentifier"] as? String })
         }
     }
 
-    func getUncachedIdentifiers(from identifiers: [String]) -> [String] {
-        let request = PhotoAnalysisEntity.fetchRequest()
-        request.predicate = NSPredicate(format: "assetIdentifier IN %@", identifiers)
-        request.propertiesToFetch = ["assetIdentifier"]
-
-        do {
-            let cached = Set(try context.fetch(request).map { $0.assetIdentifier })
-            return identifiers.filter { !cached.contains($0) }
-        } catch {
-            AppLogger.analysis.error("Failed to fetch cached identifiers: \(error.localizedDescription, privacy: .public)")
-            return identifiers
-        }
-    }
-
-    func getAllCachedResults() -> [PhotoAnalysisResult] {
-        let request = PhotoAnalysisEntity.fetchRequest()
-        do {
-            return try context.fetch(request).map { $0.toResult() }
-        } catch {
-            AppLogger.analysis.error("Failed to fetch all cached results: \(error.localizedDescription, privacy: .public)")
-            return []
-        }
-    }
-
-    func getCacheStatistics() -> (total: Int, byCategory: [SmartCategory: Int]) {
-        var byCategory: [SmartCategory: Int] = [:]
-
-        // Use CoreData count queries to avoid loading all entities into memory
-        let totalRequest = PhotoAnalysisEntity.fetchRequest()
-        let total = (try? context.count(for: totalRequest)) ?? 0
-
-        for category in SmartCategory.allCases {
+    /// Photos in each category, keyed by asset identifier
+    func membership() async -> [SmartCategory: Set<String>] {
+        await backgroundContext.perform { [backgroundContext] in
             let request = PhotoAnalysisEntity.fetchRequest()
-            request.predicate = NSPredicate(format: "ANY categories CONTAINS %@", category.rawValue)
-            byCategory[category] = (try? context.count(for: request)) ?? 0
-        }
+            request.returnsObjectsAsFaults = false
+            request.propertiesToFetch = ["assetIdentifier", "categories"]
 
-        return (total: total, byCategory: byCategory)
-    }
-
-    func getCacheStatisticsAsync() async -> (total: Int, byCategory: [SmartCategory: Int]) {
-        await withCheckedContinuation { continuation in
-            backgroundContext.perform { [backgroundContext] in
-                var byCategory: [SmartCategory: Int] = [:]
-
-                let totalRequest = PhotoAnalysisEntity.fetchRequest()
-                let total = (try? backgroundContext.count(for: totalRequest)) ?? 0
-
-                for category in SmartCategory.allCases {
-                    let request = PhotoAnalysisEntity.fetchRequest()
-                    request.predicate = NSPredicate(format: "ANY categories CONTAINS %@", category.rawValue)
-                    byCategory[category] = (try? backgroundContext.count(for: request)) ?? 0
+            var result: [SmartCategory: Set<String>] = [:]
+            for entity in (try? backgroundContext.fetch(request)) ?? [] {
+                for category in entity.smartCategories {
+                    result[category, default: []].insert(entity.assetIdentifier)
                 }
-
-                continuation.resume(returning: (total: total, byCategory: byCategory))
             }
+            return result
         }
     }
 
-    // MARK: - Write
+    func identifiers(matching category: SmartCategory) async -> [String] {
+        Array(await membership()[category] ?? [])
+    }
 
-    func saveResult(_ result: PhotoAnalysisResult) {
-        context.perform { [weak self] in
-            guard let self else { return }
-            self.upsertEntity(from: result)
-            self.saveContext()
+    /// Archived Vision feature prints for the given photos
+    func featurePrints(for identifiers: Set<String>) async -> [String: Data] {
+        guard !identifiers.isEmpty else { return [:] }
+        return await backgroundContext.perform { [backgroundContext] in
+            var prints: [String: Data] = [:]
+            // Chunk to keep the IN clause reasonable on big libraries
+            let all = Array(identifiers)
+            for start in stride(from: 0, to: all.count, by: 500) {
+                let chunk = Array(all[start..<min(start + 500, all.count)])
+                let request = NSFetchRequest<NSDictionary>(entityName: "PhotoAnalysisEntity")
+                request.resultType = .dictionaryResultType
+                request.propertiesToFetch = ["assetIdentifier", "featurePrintData"]
+                request.predicate = NSPredicate(format: "assetIdentifier IN %@", chunk)
+                for row in (try? backgroundContext.fetch(request)) ?? [] {
+                    if let id = row["assetIdentifier"] as? String, let data = row["featurePrintData"] as? Data {
+                        prints[id] = data
+                    }
+                }
+            }
+            return prints
         }
     }
 
-    func saveBatchResults(_ results: [PhotoAnalysisResult]) {
+    /// Blur and brightness scores, used to pick the best of a set of similar shots
+    func qualityScores(for identifiers: [String]) async -> [String: (blur: Float, brightness: Float)] {
+        guard !identifiers.isEmpty else { return [:] }
+        return await backgroundContext.perform { [backgroundContext] in
+            let request = NSFetchRequest<NSDictionary>(entityName: "PhotoAnalysisEntity")
+            request.resultType = .dictionaryResultType
+            request.propertiesToFetch = ["assetIdentifier", "blurScore", "brightnessScore"]
+            request.predicate = NSPredicate(format: "assetIdentifier IN %@", identifiers)
+            var scores: [String: (blur: Float, brightness: Float)] = [:]
+            for row in (try? backgroundContext.fetch(request)) ?? [] {
+                guard let id = row["assetIdentifier"] as? String else { continue }
+                scores[id] = (
+                    blur: (row["blurScore"] as? NSNumber)?.floatValue ?? 0,
+                    brightness: (row["brightnessScore"] as? NSNumber)?.floatValue ?? 0.5
+                )
+            }
+            return scores
+        }
+    }
+
+    // MARK: - Writes
+
+    func save(_ results: [PhotoAnalysisResult]) async {
         guard !results.isEmpty else { return }
-        context.perform { [weak self] in
-            guard let self else { return }
-            for result in results {
-                self.upsertEntity(from: result)
-            }
-            self.saveContext()
-        }
-    }
-
-    // MARK: - Invalidation
-
-    func invalidateStaleEntries(assets: [PHAsset]) {
-        context.perform { [weak self] in
-            guard let self else { return }
-            for asset in assets {
-                let request = PhotoAnalysisEntity.fetchRequest()
-                request.predicate = NSPredicate(format: "assetIdentifier == %@", asset.localIdentifier)
-                request.fetchLimit = 1
-
-                guard let entity = try? self.context.fetch(request).first else { continue }
-
-                // Re-analyze if photo was edited after last analysis
-                if let modDate = asset.modificationDate,
-                   let cachedModDate = entity.libraryModDate,
-                   modDate > cachedModDate {
-                    self.context.delete(entity)
-                }
-            }
-            self.saveContext()
-        }
-    }
-
-    func clearAllCache() {
-        context.perform { [weak self] in
-            guard let self else { return }
+        await backgroundContext.perform { [backgroundContext] in
             let request = PhotoAnalysisEntity.fetchRequest()
-            do {
-                let entities = try self.context.fetch(request)
-                for entity in entities {
-                    self.context.delete(entity)
-                }
-                self.saveContext()
-                AppLogger.analysis.info("Cleared all analysis cache (\(entities.count) entries)")
-            } catch {
-                AppLogger.analysis.error("Failed to clear cache: \(error.localizedDescription, privacy: .public)")
+            request.predicate = NSPredicate(format: "assetIdentifier IN %@", results.map(\.assetIdentifier))
+            var existing: [String: PhotoAnalysisEntity] = [:]
+            for entity in (try? backgroundContext.fetch(request)) ?? [] {
+                existing[entity.assetIdentifier] = entity
             }
+            for result in results {
+                let entity = existing[result.assetIdentifier] ?? PhotoAnalysisEntity(context: backgroundContext)
+                entity.populate(from: result)
+            }
+            Self.save(backgroundContext)
+        }
+    }
+
+    /// Marks exactly `members` as similar shots and clears the flag everywhere else
+    func setSimilarShotMembers(_ members: Set<String>) async {
+        await backgroundContext.perform { [backgroundContext] in
+            let request = PhotoAnalysisEntity.fetchRequest()
+            request.returnsObjectsAsFaults = false
+            let key = SmartCategory.duplicates.rawValue
+            for entity in (try? backgroundContext.fetch(request)) ?? [] {
+                var categories = (entity.categories as? [String]) ?? []
+                let shouldHave = members.contains(entity.assetIdentifier)
+                let has = categories.contains(key)
+                if shouldHave && !has {
+                    categories.append(key)
+                    entity.categories = categories as NSArray
+                } else if !shouldHave && has {
+                    categories.removeAll { $0 == key }
+                    entity.categories = categories as NSArray
+                }
+            }
+            Self.save(backgroundContext)
+        }
+    }
+
+    /// Removes results for photos that are no longer in the library. Returns how many were removed.
+    @discardableResult
+    func prune(keeping identifiers: Set<String>) async -> Int {
+        await backgroundContext.perform { [backgroundContext] in
+            let request = PhotoAnalysisEntity.fetchRequest()
+            request.propertiesToFetch = ["assetIdentifier"]
+            var removed = 0
+            for entity in (try? backgroundContext.fetch(request)) ?? [] where !identifiers.contains(entity.assetIdentifier) {
+                backgroundContext.delete(entity)
+                removed += 1
+            }
+            Self.save(backgroundContext)
+            return removed
+        }
+    }
+
+    func deleteAll() async {
+        await backgroundContext.perform { [backgroundContext] in
+            let request = PhotoAnalysisEntity.fetchRequest()
+            for entity in (try? backgroundContext.fetch(request)) ?? [] {
+                backgroundContext.delete(entity)
+            }
+            Self.save(backgroundContext)
+            AppLogger.analysis.info("Cleared analysis cache")
         }
     }
 
     // MARK: - Private
 
-    private func upsertEntity(from result: PhotoAnalysisResult) {
-        let request = PhotoAnalysisEntity.fetchRequest()
-        request.predicate = NSPredicate(format: "assetIdentifier == %@", result.assetIdentifier)
-        request.fetchLimit = 1
-
-        let entity: PhotoAnalysisEntity
-        if let existing = try? context.fetch(request).first {
-            entity = existing
-        } else {
-            entity = PhotoAnalysisEntity(context: context)
-        }
-        entity.populate(from: result)
-    }
-
-    private func saveContext() {
+    private static func save(_ context: NSManagedObjectContext) {
         guard context.hasChanges else { return }
         do {
             try context.save()

@@ -2,7 +2,7 @@
 //  SmartCategory.swift
 //  SnapSort
 //
-//  Smart AI-powered photo categories using Vision & CoreImage
+//  Photo groups detected on-device with Vision & CoreImage
 //
 
 import SwiftUI
@@ -10,54 +10,102 @@ import SwiftUI
 // MARK: - Smart Category
 
 enum SmartCategory: String, CaseIterable, Identifiable {
-    case people = "People"
-    case scenery = "Scenery"
-    case blurry = "Blurry"
-    case probablyUnwanted = "Probably Unwanted"
-    case qrCodes = "QR Codes"
-    case duplicates = "Duplicates"
+    // Raw values are persisted in the analysis cache — keep them stable
+    case duplicates
+    case blurry
+    case unwanted
+    case screenshots
+    case documents
+    case qrCodes
+    case longVideos
+    case people
+    case pets
+    case food
+    case scenery
 
     var id: String { rawValue }
 
-    var icon: String {
+    enum Section: String, CaseIterable {
+        case cleanUp = "Clean Up"
+        case browse = "Browse"
+    }
+
+    var section: Section {
         switch self {
-        case .people: return "person.2.fill"
-        case .scenery: return "mountain.2.fill"
-        case .blurry: return "aqi.low"
-        case .probablyUnwanted: return "exclamationmark.triangle.fill"
-        case .qrCodes: return "qrcode"
-        case .duplicates: return "doc.on.doc.fill"
+        case .duplicates, .blurry, .unwanted, .screenshots, .documents, .qrCodes, .longVideos:
+            return .cleanUp
+        case .people, .pets, .food, .scenery:
+            return .browse
         }
     }
 
-    var color: Color {
+    var displayName: String {
         switch self {
-        case .people: return AppColors.primary
-        case .scenery: return AppColors.success
-        case .blurry: return AppColors.warning
-        case .probablyUnwanted: return AppColors.danger
-        case .qrCodes: return .purple
-        case .duplicates: return .cyan
+        case .duplicates: return "Similar Shots"
+        case .blurry: return "Blurry"
+        case .unwanted: return "Oops Shots"
+        case .screenshots: return "Screenshots"
+        case .documents: return "Docs & Receipts"
+        case .qrCodes: return "QR Codes"
+        case .longVideos: return "Long Videos"
+        case .people: return "People"
+        case .pets: return "Pets"
+        case .food: return "Food"
+        case .scenery: return "Scenery"
         }
     }
 
     var description: String {
         switch self {
-        case .people: return "Photos grouped by person"
-        case .scenery: return "Landscapes and nature shots"
-        case .blurry: return "Out-of-focus or shaky photos"
-        case .probablyUnwanted: return "Too dark, overexposed, or low quality"
-        case .qrCodes: return "Screenshots and photos with QR codes"
-        case .duplicates: return "Similar or duplicate photos"
+        case .duplicates: return "Near-identical photos taken together"
+        case .blurry: return "Shaky or out of focus"
+        case .unwanted: return "Too dark, too bright, or taken by accident"
+        case .screenshots: return "Saved from your screen"
+        case .documents: return "Paperwork, notes, and receipts"
+        case .qrCodes: return "Tickets, menus, and links"
+        case .longVideos: return "A minute or longer — the big space hogs"
+        case .people: return "Photos with faces"
+        case .pets: return "Furry, feathery, and scaly friends"
+        case .food: return "Meals, snacks, and treats"
+        case .scenery: return "Landscapes, skies, and cityscapes"
         }
     }
 
-    /// Whether this category requires Vision/CoreImage analysis (vs. metadata-only)
-    var requiresAnalysis: Bool {
+    var icon: String {
         switch self {
-        case .people: return false // Uses PHCollectionList People albums
-        default: return true
+        case .duplicates: return "square.on.square"
+        case .blurry: return "eyeglasses"
+        case .unwanted: return "sun.max.trianglebadge.exclamationmark"
+        case .screenshots: return "camera.viewfinder"
+        case .documents: return "doc.text"
+        case .qrCodes: return "qrcode"
+        case .longVideos: return "video"
+        case .people: return "person.2"
+        case .pets: return "pawprint"
+        case .food: return "fork.knife"
+        case .scenery: return "mountain.2"
         }
+    }
+
+    var color: Color {
+        switch self {
+        case .duplicates: return AppColors.brand
+        case .blurry: return AppColors.storage
+        case .unwanted: return AppColors.streak
+        case .screenshots: return Color(.systemGray)
+        case .documents: return AppColors.storage
+        case .qrCodes: return Color(.systemGray)
+        case .longVideos: return AppColors.delete
+        case .people: return AppColors.people
+        case .pets: return AppColors.streak
+        case .food: return AppColors.delete
+        case .scenery: return AppColors.brand
+        }
+    }
+
+    /// Groups computed from the analysis cache (vs. queried live from PhotoKit)
+    var isAnalyzed: Bool {
+        self != .longVideos
     }
 }
 
@@ -72,7 +120,7 @@ enum CategorySelection: Equatable, Hashable {
     var displayName: String {
         switch self {
         case .library(let category): return category.rawValue
-        case .smart(let category): return category.rawValue
+        case .smart(let category): return category.displayName
         case .person(_, let name): return name
         }
     }
@@ -85,12 +133,9 @@ enum CategorySelection: Equatable, Hashable {
         }
     }
 
-    var color: Color {
-        switch self {
-        case .library(let category): return category.color
-        case .smart(let category): return category.color
-        case .person: return AppColors.primary
-        }
+    var isLibrary: Bool {
+        if case .library = self { return true }
+        return false
     }
 }
 

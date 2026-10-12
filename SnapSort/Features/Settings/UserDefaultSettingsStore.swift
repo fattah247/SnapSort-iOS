@@ -15,7 +15,13 @@ final class UserDefaultsSettingsStore: SettingsStoreProtocol {
     }
     
     var notificationTime: Date {
-        get { defaults.object(forKey: Constants.UserDefaultsKeys.notificationTime) as? Date ?? Date() }
+        get {
+            if let stored = defaults.object(forKey: Constants.UserDefaultsKeys.notificationTime) as? Date {
+                return stored
+            }
+            // Default to an evening reminder rather than "right now"
+            return Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: Date()) ?? Date()
+        }
         set { defaults.set(newValue, forKey: Constants.UserDefaultsKeys.notificationTime) }
     }
     
@@ -33,7 +39,7 @@ final class UserDefaultsSettingsStore: SettingsStoreProtocol {
         get {
             let value = defaults.integer(forKey: Constants.UserDefaultsKeys.storageTarget)
             // Default to 100 MB if not set
-            return value == 0 ? (100 * 1024 * 1024) : Int64(value)
+            return value == 0 ? 100_000_000 : Int64(value)
         }
         set { defaults.set(Int(newValue), forKey: Constants.UserDefaultsKeys.storageTarget) }
     }

@@ -5,270 +5,149 @@
 //  Created by Muhammad Abdul Fattah on 03/02/25.
 //
 import SwiftUI
-import Photos
-import CoreData
-import OSLog
 
+/// A single photo in the review stack, framed like a polaroid. Purely
+/// presentational — the deck owns the drag gesture and passes in how far
+/// the card has been swiped.
 struct PhotoCardView: View {
     let photo: Photo
-    let viewModel: ReviewViewModel
-    var onTap: (() -> Void)?
-    var onSkip: (() -> Void)?
+    /// -1 (fully toward trash) … 1 (fully toward bookmark); 0 at rest
+    var swipeProgress: CGFloat = 0
 
-    @GestureState private var dragOffset = CGSize.zero
-    @EnvironmentObject var haptic: HapticService
-
-    @State private var overlayOpacity: Double = 0
-    @State private var iconScale: CGFloat = 0.5
-    @State private var hasTriggeredThresholdHaptic = false
-
-    // Thresholds
-    private let iconAppearThreshold: CGFloat = 30 // Show icons early (15% of typical screen)
-    private let decisionThresholdRatio: CGFloat = 0.3
+    private let framePadding: CGFloat = 12
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: AppSpacing.sm) {
-                // Card
-                ZStack(alignment: .bottom) {
-                    imageContent(for: geometry.size)
-                        .overlay(swipeFeedbackOverlay(width: geometry.size.width))
-
-                    metadataOverlay
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous)
-                        .fill(AppColors.cardBackground)
-                        .shadow(color: shadowColor, radius: 20, x: 0, y: 5)
-                )
-                .offset(dragOffset)
-                .rotationEffect(.degrees(Double(dragOffset.width / 25)))
-                .scaleEffect(1 - abs(dragOffset.width) / 1500)
-                .onTapGesture { onTap?() }
-                .gesture(dragGesture(geometry: geometry))
-                .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.8), value: dragOffset)
-
-                // Skip button
-                if let onSkip = onSkip {
-                    Button(action: onSkip) {
-                        HStack(spacing: AppSpacing.xs) {
-                            Text("Skip for later")
-                                .font(AppTypography.labelMedium)
-                            Image(systemName: "arrow.right.circle")
-                                .font(.system(size: 16))
-                        }
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.vertical, AppSpacing.xs)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+        VStack(spacing: 0) {
+            photoArea
+                .padding([.top, .horizontal], framePadding)
+            caption
         }
-        .padding(.vertical, AppSpacing.md)
-    }
-
-    private func imageContent(for size: CGSize) -> some View {
-        ZStack {
-            if let image = photo.image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous))
-            } else {
-                Color.secondary.opacity(0.3)
-                Image(systemName: "photo")
-                    .font(.system(size: 48))
-                    .foregroundColor(.white.opacity(0.5))
-            }
-        }
-        .frame(width: size.width, height: size.height * 0.85)
-        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous)
-                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        .background(
+            AppColors.cardBackground,
+            in: RoundedRectangle(cornerRadius: AppSpacing.radiusLarge, style: .continuous)
         )
-    }
-
-    private func swipeFeedbackOverlay(width: CGFloat) -> some View {
-        let progress = abs(dragOffset.width) / (width * decisionThresholdRatio)
-        let clampedProgress = min(progress, 1.0)
-
-        return ZStack {
-            // Gradient overlay based on swipe direction
-            if dragOffset.width > 0 {
-                LinearGradient(
-                    colors: [AppColors.bookmark.opacity(0.0), AppColors.bookmark.opacity(0.4 * clampedProgress)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            } else if dragOffset.width < 0 {
-                LinearGradient(
-                    colors: [AppColors.delete.opacity(0.4 * clampedProgress), AppColors.delete.opacity(0.0)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            }
-
-            // Action icons
-            swipeIndicators(progress: clampedProgress)
+        .overlay(alignment: .topLeading) {
+            sticker(title: "Bookmark", systemImage: "bookmark.fill", fill: AppColors.keep, ink: AppColors.keepInk, angle: -10)
+                .padding(26)
+                .opacity(Double(max(0, swipeProgress)))
+                .scaleEffect(0.8 + 0.2 * max(0, swipeProgress), anchor: .topLeading)
         }
-        .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusXLarge, style: .continuous))
-        .opacity(overlayOpacity)
+        .overlay(alignment: .topTrailing) {
+            sticker(title: "Trash", systemImage: "trash.fill", fill: AppColors.delete, ink: .white, angle: 10)
+                .padding(26)
+                .opacity(Double(max(0, -swipeProgress)))
+                .scaleEffect(0.8 + 0.2 * max(0, -swipeProgress), anchor: .topTrailing)
+        }
+        .shadow(color: .black.opacity(0.1), radius: 14, y: 6)
     }
 
-    private func swipeIndicators(progress: CGFloat) -> some View {
-        HStack {
-            // Delete indicator (left side)
-            if dragOffset.width < -iconAppearThreshold {
-                VStack(spacing: AppSpacing.xs) {
-                    ZStack {
-                        Circle()
-                            .fill(AppColors.deleteGradient)
-                            .frame(width: 60, height: 60)
+    // MARK: - Photo
 
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    .scaleEffect(iconScale)
-
-                    Text("Delete")
-                        .font(AppTypography.labelSmall)
-                        .foregroundColor(.white)
-                        .opacity(progress > 0.5 ? 1 : 0)
+    private var photoArea: some View {
+        AppColors.placeholder
+            .overlay {
+                if let image = photo.image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: photo.isVideo ? "video" : "photo")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.leading, AppSpacing.lg)
-                .transition(.scale.combined(with: .opacity))
             }
-
-            Spacer()
-
-            // Bookmark indicator (right side)
-            if dragOffset.width > iconAppearThreshold {
-                VStack(spacing: AppSpacing.xs) {
-                    ZStack {
-                        Circle()
-                            .fill(AppColors.bookmarkGradient)
-                            .frame(width: 60, height: 60)
-
-                        Image(systemName: "bookmark.fill")
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    .scaleEffect(iconScale)
-
-                    Text("Bookmark")
-                        .font(AppTypography.labelSmall)
-                        .foregroundColor(.white)
-                        .opacity(progress > 0.5 ? 1 : 0)
+            .overlay {
+                // Color wash hinting at the decision
+                (swipeProgress > 0 ? AppColors.keep : AppColors.delete)
+                    .opacity(Double(abs(swipeProgress)) * 0.3)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if let duration = photo.durationText {
+                    Label(duration, systemImage: "play.fill")
+                        .font(.footnote.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .padding(10)
                 }
-                .padding(.trailing, AppSpacing.lg)
-                .transition(.scale.combined(with: .opacity))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusSmall + 4, style: .continuous))
+    }
+
+    // MARK: - Caption
+
+    private var caption: some View {
+        HStack(alignment: .center, spacing: AppSpacing.sm) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(photo.creationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Some day")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(photo.fileSize.formatted(.byteCount(style: .file)))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            Spacer(minLength: 0)
+            HStack(spacing: AppSpacing.xxs) {
+                ForEach(tags) { category in
+                    TagChip(category: category)
+                }
             }
         }
+        .lineLimit(1)
+        .padding(.horizontal, AppSpacing.md + 2)
+        .padding(.vertical, AppSpacing.sm)
     }
 
-    private func dragGesture(geometry: GeometryProxy) -> some Gesture {
-        let decisionThreshold = geometry.size.width * decisionThresholdRatio
-
-        return DragGesture()
-            .updating($dragOffset) { value, state, _ in
-                state = value.translation
-                let absWidth = abs(value.translation.width)
-
-                // Update overlay opacity — direct assignment, no withAnimation per frame
-                overlayOpacity = min(absWidth / 100, 1.0)
-                iconScale = min(0.5 + (absWidth / decisionThreshold) * 0.5, 1.0)
-
-                // Haptic feedback at threshold
-                if absWidth > decisionThreshold && !hasTriggeredThresholdHaptic {
-                    haptic.impact(.medium)
-                    hasTriggeredThresholdHaptic = true
-                } else if absWidth < decisionThreshold && hasTriggeredThresholdHaptic {
-                    hasTriggeredThresholdHaptic = false
-                }
+    /// The two most useful smart tags, cleanup reasons first
+    private var tags: [SmartCategory] {
+        photo.smartCategories
+            .filter { $0 != .longVideos }
+            .sorted { lhs, rhs in
+                if lhs.section != rhs.section { return lhs.section == .cleanUp }
+                return lhs.displayName < rhs.displayName
             }
-            .onEnded { value in
-                handleDragEnded(value.translation, threshold: decisionThreshold)
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    overlayOpacity = 0
-                    iconScale = 0.5
-                }
-                hasTriggeredThresholdHaptic = false
-            }
+            .prefix(2)
+            .map { $0 }
     }
 
-    private var metadataOverlay: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 11))
-                    Text(photo.creationDate?.formatted(date: .abbreviated, time: .omitted) ?? "Unknown Date")
-                        .font(AppTypography.caption)
-                }
+    // MARK: - Stickers
 
-                HStack(spacing: 6) {
-                    Image(systemName: "doc")
-                        .font(.system(size: 11))
-                    Text(photo.fileSize.formatted(.byteCount(style: .file)))
-                        .font(AppTypography.caption)
-                }
+    private func sticker(title: String, systemImage: String, fill: Color, ink: Color, angle: Double) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.title3.weight(.heavy))
+            .foregroundStyle(ink)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(fill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(.white, lineWidth: 3)
             }
-            .foregroundColor(.white)
-            .padding(.horizontal, AppSpacing.sm)
-            .padding(.vertical, AppSpacing.xs)
-            .background(
-                .ultraThinMaterial,
-                in: RoundedRectangle(cornerRadius: AppSpacing.radiusSmall, style: .continuous)
-            )
-
-            Spacer()
-
-            // Smart category badges
-            if !photo.smartCategories.isEmpty {
-                categoryBadges
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding([.horizontal, .bottom], AppSpacing.md)
-    }
-
-    @ViewBuilder
-    private var categoryBadges: some View {
-        HStack(spacing: 4) {
-            ForEach(Array(photo.smartCategories).prefix(3), id: \.self) { category in
-                HStack(spacing: 3) {
-                    Image(systemName: category.icon)
-                        .font(.system(size: 9, weight: .semibold))
-                    Text(category.rawValue)
-                        .font(.system(size: 9, weight: .medium))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(category.color.opacity(0.85))
-                )
-            }
-        }
-    }
-
-    private func handleDragEnded(_ translation: CGSize, threshold: CGFloat) {
-        let direction: SwipeDirection = translation.width > 0 ? .right : .left
-
-        if abs(translation.width) > threshold {
-            viewModel.handleSwipe(direction, for: photo)
-        }
-    }
-
-    private var shadowColor: Color {
-        if UITraitCollection.current.userInterfaceStyle == .dark {
-            return Color.black.opacity(0.6)
-        } else {
-            return Color.black.opacity(0.15)
-        }
+            .rotationEffect(.degrees(angle))
+            .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+            .accessibilityHidden(true)
     }
 }
 
+/// Small rounded label for a smart category, e.g. "Blurry"
+struct TagChip: View {
+    let category: SmartCategory
+
+    var body: some View {
+        Label {
+            Text(category.displayName)
+                .foregroundStyle(.primary)
+        } icon: {
+            Image(systemName: category.icon)
+                .foregroundStyle(category.color)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(category.color.opacity(0.14), in: Capsule())
+    }
+}

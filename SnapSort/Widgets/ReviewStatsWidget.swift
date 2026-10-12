@@ -16,10 +16,12 @@ struct ReviewStatsWidget: Widget {
             provider: StatsTimelineProvider()
         ) { (entry: StatsEntry) in
             StatsWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                // Looked up by name: this file is also compiled into the app,
+                // whose catalog has no widget background
+                .containerBackground(Color("WidgetBackground"), for: .widget)
         }
-        .configurationDisplayName("Review Stats")
-        .description("Track your photo review progress")
+        .configurationDisplayName("Sorting Stats")
+        .description("Your streak and how much space you've cleared.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -29,7 +31,8 @@ struct ReviewStatsWidget: Widget {
 struct StatsEntry: TimelineEntry {
     let date: Date
     let streak: Int
-    let saved: Int64
+    /// Bytes of photos deleted through SnapSort
+    let cleared: Int64
     let totalReviewed: Int64
     let totalDeleted: Int64
     let totalBookmarked: Int64
@@ -41,7 +44,7 @@ struct StatsTimelineProvider: TimelineProvider {
     typealias Entry = StatsEntry
 
     func placeholder(in context: Context) -> StatsEntry {
-        StatsEntry(date: Date(), streak: 0, saved: 0, totalReviewed: 0, totalDeleted: 0, totalBookmarked: 0)
+        StatsEntry(date: Date(), streak: 3, cleared: 120_000_000, totalReviewed: 48, totalDeleted: 15, totalBookmarked: 9)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (StatsEntry) -> Void) {
@@ -60,7 +63,7 @@ struct StatsTimelineProvider: TimelineProvider {
         return StatsEntry(
             date: Date(),
             streak: defaults?.integer(forKey: Constants.SharedDefaults.streak) ?? 0,
-            saved: Int64(defaults?.integer(forKey: Constants.SharedDefaults.storageSaved) ?? 0),
+            cleared: Int64(defaults?.integer(forKey: Constants.SharedDefaults.spaceCleared) ?? 0),
             totalReviewed: Int64(defaults?.integer(forKey: Constants.SharedDefaults.totalReviewed) ?? 0),
             totalDeleted: Int64(defaults?.integer(forKey: Constants.SharedDefaults.totalDeleted) ?? 0),
             totalBookmarked: Int64(defaults?.integer(forKey: Constants.SharedDefaults.totalBookmarked) ?? 0)
@@ -72,149 +75,116 @@ struct StatsTimelineProvider: TimelineProvider {
 
 struct StatsWidgetView: View {
     var entry: StatsEntry
-    @Environment(\.widgetFamily) var family
+    @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemMedium:
-            mediumView
-        default:
-            smallView
-        }
-    }
-
-    // MARK: - Small Widget
-
-    private var smallView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 4) {
-                Image(systemName: "photo.on.rectangle.angled")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.indigo)
-                Text("Photo Review")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.orange)
-                Text("\(entry.streak)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
-            }
-            Text("day streak")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                Image(systemName: "externaldrive.fill")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.teal)
-                Text(entry.saved.formatted(.byteCount(style: .file)))
-                    .font(.system(size: 14, weight: .semibold, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.teal)
-            }
-            Text("space saved")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-    }
-
-    // MARK: - Medium Widget
-
-    private var mediumView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 4) {
-                Image(systemName: "photo.on.rectangle.angled")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.indigo)
-                Text("Photo Review")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
-            Spacer()
-
-            HStack(spacing: 0) {
-                statItem(
-                    value: "\(entry.streak)",
-                    label: "Streak",
-                    icon: "flame.fill",
-                    color: .orange
-                )
-                Spacer()
-                statItem(
-                    value: entry.saved.formatted(.byteCount(style: .file)),
-                    label: "Saved",
-                    icon: "externaldrive.fill",
-                    color: .teal
-                )
-                Spacer()
-                statItem(
-                    value: "\(entry.totalReviewed)",
-                    label: "Reviewed",
-                    icon: "eye.fill",
-                    color: .blue
-                )
-            }
-
-            Spacer().frame(height: 4)
-
-            HStack(spacing: 0) {
-                statItem(
-                    value: "\(entry.totalDeleted)",
-                    label: "Deleted",
-                    icon: "trash.fill",
-                    color: .red
-                )
-                Spacer()
-                statItem(
-                    value: "\(entry.totalBookmarked)",
-                    label: "Bookmarked",
-                    icon: "bookmark.fill",
-                    color: .purple
-                )
-                Spacer()
-                Color.clear.frame(width: 80, height: 1)
+        Group {
+            switch family {
+            case .systemMedium:
+                HStack(alignment: .top, spacing: 16) {
+                    streakColumn
+                    statGrid
+                }
+            default:
+                streakColumn
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .fontDesign(.rounded)
     }
 
-    private func statItem(value: String, label: String, icon: String, color: Color) -> some View {
+    private var header: some View {
+        Label {
+            Text("SnapSort")
+        } icon: {
+            Image(systemName: "leaf.fill")
+                .foregroundStyle(Color("AccentColor"))
+                .widgetAccentable()
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .labelStyle(.titleAndIcon)
+    }
+
+    private var streakColumn: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 10))
-                    .foregroundStyle(color)
-                Text(value)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded).monospacedDigit())
+            header
+            Spacer(minLength: 4)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color(.tangerine))
+                    .widgetAccentable()
+                Text(entry.streak.formatted())
+                    .font(.system(size: 40, weight: .bold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
             }
+            Text(entry.streak == 0 ? "Sort a photo to start a streak" : "day streak")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Spacer(minLength: 4)
+            if family == .systemSmall {
+                Label {
+                    Text("\(entry.cleared.formatted(.byteCount(style: .file))) cleared")
+                        .monospacedDigit()
+                } icon: {
+                    Image(systemName: "internaldrive.fill")
+                        .foregroundStyle(Color(.sky))
+                        .widgetAccentable()
+                }
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var statGrid: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+            GridRow {
+                stat(entry.cleared.formatted(.byteCount(style: .file)), "Cleared", "internaldrive.fill", Color(.sky))
+                stat(entry.totalReviewed.formatted(), "Sorted", "checkmark.circle.fill", Color("AccentColor"))
+            }
+            GridRow {
+                stat(entry.totalDeleted.formatted(), "Trashed", "trash.fill", Color(.tomato))
+                stat(entry.totalBookmarked.formatted(), "Bookmarked", "bookmark.fill", Color(.honey))
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private func stat(_ value: String, _ label: String, _ icon: String, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Image(systemName: icon)
+                .font(.footnote)
+                .foregroundStyle(tint)
+                .widgetAccentable()
+            Text(value)
+                .font(.headline)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(label)
-                .font(.system(size: 10))
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 80, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
 #Preview(as: .systemSmall) {
     ReviewStatsWidget()
 } timeline: {
-    StatsEntry(date: .now, streak: 7, saved: 150 * 1024 * 1024, totalReviewed: 42, totalDeleted: 12, totalBookmarked: 30)
+    StatsEntry(date: .now, streak: 7, cleared: 150_000_000, totalReviewed: 42, totalDeleted: 12, totalBookmarked: 30)
+    StatsEntry(date: .now, streak: 0, cleared: 0, totalReviewed: 0, totalDeleted: 0, totalBookmarked: 0)
 }
 
 #Preview(as: .systemMedium) {
     ReviewStatsWidget()
 } timeline: {
-    StatsEntry(date: .now, streak: 7, saved: 150 * 1024 * 1024, totalReviewed: 42, totalDeleted: 12, totalBookmarked: 30)
+    StatsEntry(date: .now, streak: 7, cleared: 150_000_000, totalReviewed: 42, totalDeleted: 12, totalBookmarked: 30)
 }

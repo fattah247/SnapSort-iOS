@@ -28,27 +28,19 @@ enum Constants {
 
     enum SharedDefaults {
         static let streak = "widget_streak"
-        static let storageSaved = "widget_storageSaved"
+        static let spaceCleared = "widget_spaceCleared"
         static let totalReviewed = "widget_totalReviewed"
         static let totalDeleted = "widget_totalDeleted"
         static let totalBookmarked = "widget_totalBookmarked"
     }
 
     enum AppGroup {
-        static let identifier = "group.com.fatarc.SnapSort"
+        static let identifier = "group.com.canoe.snapsort"
     }
 
     enum DeepLink {
         static let scheme = "photoreviewapp"
         static let host = "photoreview.com"
-    }
-
-    enum Sentry {
-        static let dsn = "YOUR_SENTRY_DSN_HERE"  // Replace with your Sentry DSN
-    }
-
-    enum Telemetry {
-        static let appID = "YOUR_TELEMETRY_APP_ID_HERE"  // Replace with your TelemetryDeck app ID
     }
 
     enum PhotoLoading {
@@ -61,14 +53,46 @@ enum Constants {
     }
 
     enum Analysis {
-        static let thumbnailSize: CGFloat = 300
+        /// Bump when detection changes — cached results from older versions are discarded
+        static let version = 3
+        static let versionDefaultsKey = "analysisVersion"
+
+        /// Long side of the image analyzed per photo. Blur is only visible at screen-ish sizes.
+        static let imageSize: CGFloat = 1024
         static let maxConcurrentAnalysis = 3
         static let backgroundBatchSize = 20
         static let backgroundBatchDelay: TimeInterval = 0.1
-        static let blurThreshold: Float = 0.7
-        static let darkThreshold: Float = 0.15
-        static let brightThreshold: Float = 0.92
-        static let duplicateDistanceThreshold: Float = 0.3
-        static let backgroundTaskIdentifier = "com.fatarc.SnapSort.photoAnalysis"
+        static let backgroundTaskIdentifier = "com.canoe.snapsort.photoAnalysis"
+
+        // Calibrated on ~160 real photos and blurred/darkened/brightened variants
+        /// Re-blur score above which a photo looks soft (sharp originals peaked at 0.578)
+        static let blurThreshold: Float = 0.58
+        /// A slightly soft photo that the aesthetics model also dislikes is blurry too
+        static let softBlurWithLowAestheticsThreshold: Float = 0.52
+        static let blurryAestheticsThreshold: Float = -0.5
+        static let darkMeanThreshold: Float = 0.14
+        static let darkSpreadThreshold: Float = 0.09
+        static let blownHighlightThreshold: Float = 0.25
+        static let brightMeanThreshold: Float = 0.6
+        /// Aesthetics score below which a slightly soft photo is likely a throwaway
+        static let lowAestheticsThreshold: Float = -0.6
+        static let softBlurThreshold: Float = 0.5
+
+        /// Minimum classifier confidence for scene/pet/food labels
+        static let labelConfidence: Float = 0.35
+        /// Document labels alone are noisier — photos of paper also trip `isUtility`
+        static let documentLabelConfidence: Float = 0.5
+
+        // Similar shots: feature-print distance. Retakes ≤ 0.4, a blurred retake ≤ 0.63,
+        // unrelated photos ≥ 0.84 — and only photos taken minutes apart are compared
+        static let similarDistanceThreshold: Float = 0.65
+        /// Difference-hash fallback: retakes within ~14 of 64 bits, unrelated photos ~30
+        static let similarHashThreshold = 14
+        /// Only compare photos taken within this many seconds of each other
+        static let similarTimeWindow: TimeInterval = 300
+        static let similarMaxNeighbors = 30
+
+        /// Videos at least this long count as "long videos"
+        static let longVideoDuration: TimeInterval = 60
     }
 }

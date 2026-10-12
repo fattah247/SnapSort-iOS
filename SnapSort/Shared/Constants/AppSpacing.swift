@@ -15,88 +15,116 @@ enum AppSpacing {
     static let md: CGFloat = 16
     static let lg: CGFloat = 24
     static let xl: CGFloat = 32
-    static let xxl: CGFloat = 48
-
-    // MARK: - Component Specific
-    static let cardPadding: CGFloat = 16
-    static let sectionSpacing: CGFloat = 24
-    static let itemSpacing: CGFloat = 12
-    static let iconSize: CGFloat = 24
-    static let iconSizeLarge: CGFloat = 32
-    static let iconSizeSmall: CGFloat = 20
 
     // MARK: - Corner Radius
-    static let radiusSmall: CGFloat = 8
-    static let radiusMedium: CGFloat = 12
-    static let radiusLarge: CGFloat = 16
-    static let radiusXLarge: CGFloat = 20
-    static let radiusRound: CGFloat = 100
-
-    // MARK: - Shadows
-    static let shadowSmall = ShadowStyle(
-        color: Color.black.opacity(0.08),
-        radius: 4,
-        x: 0,
-        y: 2
-    )
-
-    static let shadowMedium = ShadowStyle(
-        color: Color.black.opacity(0.12),
-        radius: 8,
-        x: 0,
-        y: 4
-    )
-
-    static let shadowLarge = ShadowStyle(
-        color: Color.black.opacity(0.16),
-        radius: 16,
-        x: 0,
-        y: 8
-    )
-
-    // MARK: - Animation Durations
-    static let animationFast: Double = 0.15
-    static let animationNormal: Double = 0.3
-    static let animationSlow: Double = 0.5
+    static let radiusSmall: CGFloat = 10
+    static let radiusMedium: CGFloat = 18
+    static let radiusLarge: CGFloat = 26
 
     // MARK: - Grid
-    static let gridMinItemSize: CGFloat = 120
-    static let gridSpacing: CGFloat = 8
-}
-
-// MARK: - Shadow Style
-struct ShadowStyle {
-    let color: Color
-    let radius: CGFloat
-    let x: CGFloat
-    let y: CGFloat
+    static let gridSpacing: CGFloat = 3
 }
 
 // MARK: - View Extensions
 extension View {
-    func appShadow(_ style: ShadowStyle) -> some View {
-        shadow(color: style.color, radius: style.radius, x: style.x, y: style.y)
+    /// Soft "paper" card on the oat background.
+    func cardStyle() -> some View {
+        self
+            .padding(AppSpacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                AppColors.cardBackground,
+                in: RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous)
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 8, y: 3)
     }
 
-    func appCardStyle() -> some View {
+    /// Small rounded-square tile behind an SF Symbol, like Settings icons.
+    func iconTile(_ color: Color, size: CGFloat = 30, foreground: Color = .white) -> some View {
         self
-            .background(AppColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
-            .appShadow(AppSpacing.shadowSmall)
-    }
-
-    func appSectionStyle() -> some View {
-        self
-            .padding(AppSpacing.cardPadding)
-            .background(AppColors.secondaryBackground)
-            .clipShape(RoundedRectangle(cornerRadius: AppSpacing.radiusMedium, style: .continuous))
+            .font(.system(size: size * 0.5, weight: .semibold))
+            .foregroundStyle(foreground)
+            .frame(width: size, height: size)
+            .background(color, in: RoundedRectangle(cornerRadius: size * 0.3, style: .continuous))
     }
 }
 
-// MARK: - Animation Helpers
-extension Animation {
-    static let appSpring = Animation.spring(response: 0.35, dampingFraction: 0.8)
-    static let appBouncy = Animation.spring(response: 0.4, dampingFraction: 0.6)
-    static let appSmooth = Animation.easeInOut(duration: AppSpacing.animationNormal)
-    static let appFast = Animation.easeOut(duration: AppSpacing.animationFast)
+// MARK: - Chunky Button
+
+/// Tactile, slightly 3D button: a darker "lip" sits under the face and the
+/// face sinks into it when pressed.
+struct ChunkyButtonStyle: ButtonStyle {
+    var fill: Color = AppColors.brand
+    var foreground: Color = .white
+    var shape: Shape = .capsule
+
+    enum Shape {
+        case capsule
+        case circle
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        ChunkyButtonBody(configuration: configuration, fill: fill, foreground: foreground, shape: shape)
+    }
+}
+
+private struct ChunkyButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let fill: Color
+    let foreground: Color
+    let shape: ChunkyButtonStyle.Shape
+
+    @Environment(\.isEnabled) private var isEnabled
+    private let lip: CGFloat = 4
+
+    var body: some View {
+        let pressed = configuration.isPressed
+        configuration.label
+            .foregroundStyle(foreground)
+            .background { face(fill) }
+            .background {
+                // The lip: same color, a shade darker
+                face(fill).overlay { face(.black.opacity(0.2)) }
+                    .offset(y: pressed ? 1 : lip)
+            }
+            .offset(y: pressed ? lip - 1 : 0)
+            .opacity(isEnabled ? 1 : 0.45)
+            .saturation(isEnabled ? 1 : 0.3)
+            .padding(.bottom, lip)
+            .animation(.spring(response: 0.18, dampingFraction: 0.6), value: pressed)
+    }
+
+    @ViewBuilder
+    private func face(_ color: Color) -> some View {
+        switch shape {
+        case .capsule: Capsule().fill(color)
+        case .circle: Circle().fill(color)
+        }
+    }
+}
+
+extension ButtonStyle where Self == ChunkyButtonStyle {
+    static var chunky: ChunkyButtonStyle { ChunkyButtonStyle() }
+
+    static func chunky(_ fill: Color, foreground: Color = .white) -> ChunkyButtonStyle {
+        ChunkyButtonStyle(fill: fill, foreground: foreground)
+    }
+}
+
+/// Full-width label for chunky buttons
+struct ChunkyLabel: View {
+    let title: String
+    var systemImage: String?
+
+    var body: some View {
+        HStack(spacing: AppSpacing.xs) {
+            if let systemImage {
+                Image(systemName: systemImage)
+            }
+            Text(title)
+        }
+        .font(.headline)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 15)
+    }
 }
