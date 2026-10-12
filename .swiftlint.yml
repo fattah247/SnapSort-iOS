@@ -1,13 +1,13 @@
-# SwiftLint configuration for PhotoReviewApp
+# SwiftLint configuration for SnapSort
 
 included:
-  - PhotoReviewApp
+  - SnapSort
 
 excluded:
-  - PhotoReviewApp/Preview Content
-  - PhotoReviewWidgets
-  - PhotoReviewAppTests
-  - PhotoReviewAppUITests
+  - SnapSort/Preview Content
+  - SnapSortWidgets
+  - SnapSortTests
+  - SnapSortUITests
 
 disabled_rules:
   - trailing_comma
