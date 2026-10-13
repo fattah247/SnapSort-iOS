@@ -120,6 +120,7 @@ private struct SimilarGroupCard: View {
                 }
                 .buttonStyle(.chunky(AppColors.delete))
                 .disabled(trashCount == 0)
+                .accessibilityIdentifier("similar-trash")
             }
         }
         .cardStyle()

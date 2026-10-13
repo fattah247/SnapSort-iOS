@@ -92,6 +92,7 @@ struct SmartGroupsView: View {
         }
         // Similar shots open a list even when empty, so the explanation is reachable
         .disabled(count == 0 && category != .duplicates)
+        .accessibilityIdentifier("smart-\(category.rawValue)")
     }
 }
 
