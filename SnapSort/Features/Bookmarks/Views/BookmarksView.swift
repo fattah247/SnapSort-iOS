@@ -24,6 +24,7 @@ enum BookmarkSortOption: String, CaseIterable {
 struct BookmarksView: View {
     @EnvironmentObject var bookmarkManager: CoreDataBookmarkManager
     @EnvironmentObject var appState: AppStateManager
+    @Environment(\.haptics) private var haptics
 
     @AppStorage("bookmarkSortOption") private var sortOption: BookmarkSortOption = .dateAdded
     @AppStorage("bookmarkSortDescending") private var sortDescending = true
@@ -89,7 +90,7 @@ struct BookmarksView: View {
                 PhotoDetailView(asset: asset) {
                     Spacer()
                     Button("Remove Bookmark", role: .destructive) {
-                        bookmarkManager.setBookmarked(false, assetIdentifier: asset.localIdentifier)
+                        removeBookmark(asset)
                         selectedAsset = nil
                     }
                 }
@@ -163,7 +164,7 @@ struct BookmarksView: View {
                     .contextMenu {
                         if !isSelecting {
                             Button(role: .destructive) {
-                                bookmarkManager.setBookmarked(false, assetIdentifier: asset.localIdentifier)
+                                removeBookmark(asset)
                             } label: {
                                 Label("Remove Bookmark", systemImage: "bookmark.slash")
                             }
@@ -195,6 +196,7 @@ struct BookmarksView: View {
             }
             Spacer()
             Button(role: .destructive) {
+                haptics?.play(.release)
                 bookmarkManager.removeBookmarks(assetIdentifiers: selection)
                 selection.removeAll()
                 withAnimation { isSelecting = false }
@@ -210,7 +212,14 @@ struct BookmarksView: View {
         selection.removeAll()
     }
 
+    /// The soft "unclick" that undoes a bookmark
+    private func removeBookmark(_ asset: PHAsset) {
+        haptics?.play(.release)
+        bookmarkManager.setBookmarked(false, assetIdentifier: asset.localIdentifier)
+    }
+
     private func toggle(_ asset: PHAsset) {
+        haptics?.play(.system(.selection))
         if !selection.insert(asset.localIdentifier).inserted {
             selection.remove(asset.localIdentifier)
         }

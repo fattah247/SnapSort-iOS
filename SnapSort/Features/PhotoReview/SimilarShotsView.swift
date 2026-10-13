@@ -77,6 +77,7 @@ private struct SimilarGroupCard: View {
     @State private var bestID: String?
     @State private var keepers: Set<String> = []
     @State private var previewAsset: PHAsset?
+    @Environment(\.haptics) private var haptics
 
     private var trashCount: Int { group.assetIdentifiers.count - keepers.count }
 
@@ -139,6 +140,7 @@ private struct SimilarGroupCard: View {
         let isBest = id == bestID
 
         return Button {
+            haptics?.play(.system(.selection))
             withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
                 if isKept { keepers.remove(id) } else { keepers.insert(id) }
             }

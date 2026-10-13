@@ -21,7 +21,7 @@ struct ReviewView: View {
 
     init(
         photoService: any PhotoLibraryServiceProtocol,
-        haptic: any HapticServiceProtocol,
+        haptics: any HapticsProtocol,
         analytics: any AnalyticsServiceProtocol,
         bookmarkManager: CoreDataBookmarkManager,
         trashManager: CoreDataTrashManager,
@@ -32,7 +32,7 @@ struct ReviewView: View {
     ) {
         _viewModel = StateObject(wrappedValue: ReviewViewModel(
             photoService: photoService,
-            haptic: haptic,
+            haptics: haptics,
             analytics: analytics,
             bookmarkManager: bookmarkManager,
             trashManager: trashManager,

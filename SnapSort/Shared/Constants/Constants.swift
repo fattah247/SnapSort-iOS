@@ -16,6 +16,7 @@ enum Constants {
         static let showDeletionConfirmation = "showDeletionConfirmation"
         static let selectedWeeklyDays = "selectedWeeklyDays"
         static let selectedMonthlyDay = "selectedMonthlyDay"
+        static let hapticsEnabled = "hapticsEnabled"
     }
 
     enum Notifications {
@@ -41,6 +42,16 @@ enum Constants {
     enum DeepLink {
         static let scheme = "photoreviewapp"
         static let host = "photoreview.com"
+    }
+
+    enum Haptics {
+        /// The same pattern within this window is dropped, so rapid repeats don't blur into a buzz
+        static let repeatGuard: TimeInterval = 0.04
+        /// A drag leaves a swipe zone only below this fraction of the threshold, so a finger
+        /// resting on the line doesn't chatter
+        static let zoneExitFraction: CGFloat = 0.85
+        /// Bulk trashing ticks once per photo up to this many, then lands with the trash thunk
+        static let maxCascadeTicks = 4
     }
 
     enum PhotoLoading {

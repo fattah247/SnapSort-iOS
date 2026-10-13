@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject var settings: SettingsViewModel
     @EnvironmentObject var analysisService: PhotoAnalysisService
     @EnvironmentObject var photoService: PhotoLibraryService
+    @EnvironmentObject var haptics: Haptics
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var didResetTips = false
@@ -164,6 +165,14 @@ struct SettingsView: View {
             Toggle(isOn: $settings.showDeletionConfirmation) {
                 SettingsLabel("Confirm Before Trashing", systemImage: "trash.fill", tint: AppColors.delete)
             }
+
+            Toggle(isOn: $haptics.isEnabled) {
+                SettingsLabel("Haptics", systemImage: "iphone.radiowaves.left.and.right", tint: AppColors.people)
+            }
+            .onChange(of: haptics.isEnabled) { _, isOn in
+                // A small taste of what was just turned on
+                if isOn { haptics.play(.confirm) }
+            }
         } header: {
             Text("Reviewing")
         } footer: {
@@ -225,6 +234,14 @@ struct SettingsView: View {
             } label: {
                 SettingsLabel("Version", systemImage: "info", tint: Color(.systemGray))
             }
+
+            #if DEBUG
+            NavigationLink {
+                HapticsLabView()
+            } label: {
+                SettingsLabel("Haptics Lab", systemImage: "waveform.path", tint: Color(.systemGray))
+            }
+            #endif
         } footer: {
             Text("Photos are analyzed on this device and never uploaded.")
         }

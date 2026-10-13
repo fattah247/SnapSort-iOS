@@ -15,7 +15,8 @@ struct SessionSummaryView: View {
     @State private var storageSaved: Int64
     @State private var reviewCount: Int
     @State private var trashCount: Int
-    @State private var hasAppeared = false
+
+    @Environment(\.haptics) private var haptics
 
     init(
         storageSaved: Int64,
@@ -60,8 +61,8 @@ struct SessionSummaryView: View {
         .overlay(alignment: .top) {
             ConfettiView()
         }
-        .sensoryFeedback(.success, trigger: hasAppeared)
-        .onAppear { hasAppeared = true }
+        // Starts with the confetti burst
+        .onAppear { haptics?.play(.celebrate) }
         .interactiveDismissDisabled()
     }
 

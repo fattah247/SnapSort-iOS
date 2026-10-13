@@ -57,6 +57,8 @@ struct ChunkyButtonStyle: ButtonStyle {
     var fill: Color = AppColors.brand
     var foreground: Color = .white
     var shape: Shape = .capsule
+    /// A soft tap as the button sinks, so it feels like the press it looks like
+    var pressFeedback = true
 
     enum Shape {
         case capsule
@@ -64,7 +66,13 @@ struct ChunkyButtonStyle: ButtonStyle {
     }
 
     func makeBody(configuration: Configuration) -> some View {
-        ChunkyButtonBody(configuration: configuration, fill: fill, foreground: foreground, shape: shape)
+        ChunkyButtonBody(
+            configuration: configuration,
+            fill: fill,
+            foreground: foreground,
+            shape: shape,
+            pressFeedback: pressFeedback
+        )
     }
 }
 
@@ -73,8 +81,10 @@ private struct ChunkyButtonBody: View {
     let fill: Color
     let foreground: Color
     let shape: ChunkyButtonStyle.Shape
+    let pressFeedback: Bool
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.haptics) private var haptics
     private let lip: CGFloat = 4
 
     var body: some View {
@@ -92,6 +102,12 @@ private struct ChunkyButtonBody: View {
             .saturation(isEnabled ? 1 : 0.3)
             .padding(.bottom, lip)
             .animation(.spring(response: 0.18, dampingFraction: 0.6), value: pressed)
+            .onChange(of: pressed) { _, isPressed in
+                // On touch-down, the same moment the button visibly sinks
+                if isPressed, pressFeedback, isEnabled {
+                    haptics?.play(.press)
+                }
+            }
     }
 
     @ViewBuilder

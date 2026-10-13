@@ -14,7 +14,7 @@ import OSLog
 @main
 struct SnapSortApp: App {
     @StateObject private var appState = AppStateManager()
-    @StateObject private var hapticService = HapticService()
+    @StateObject private var haptics = Haptics()
     @StateObject private var dataManager = CoreDataManager.shared
 
     @StateObject private var photoService: PhotoLibraryService
@@ -137,7 +137,8 @@ struct SnapSortApp: App {
             // Inject all necessary environment objects.
             .environmentObject(appState)
             .environmentObject(photoService)
-            .environmentObject(hapticService)
+            .environmentObject(haptics)
+            .environment(\.haptics, haptics)
             .environmentObject(notificationService)
             .environmentObject(settingsViewModel)
             .environmentObject(analyticsService)
