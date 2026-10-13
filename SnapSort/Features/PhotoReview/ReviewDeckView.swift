@@ -377,6 +377,8 @@ private struct DeckActionButton: View {
             .buttonStyle(ChunkyButtonStyle(fill: fill, foreground: ink, shape: .circle, pressFeedback: false))
             .keyboardShortcut(shortcut, modifiers: [])
             .accessibilityLabel(title)
+            // "Trash" is also a tab, so UI tests find these by identifier
+            .accessibilityIdentifier("deck-\(title.lowercased())")
             .frame(height: rowHeight)
 
             Text(title)
