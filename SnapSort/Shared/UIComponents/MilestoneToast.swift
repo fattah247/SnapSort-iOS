@@ -11,6 +11,8 @@ struct MilestoneToast: View {
     let milestone: AchievementType
     let onDismiss: () -> Void
 
+    @Environment(\.haptics) private var haptics
+
     var body: some View {
         ZStack(alignment: .top) {
             ConfettiView(pieceCount: 50, duration: 2.4)
@@ -43,7 +45,9 @@ struct MilestoneToast: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityHint("Dismisses")
         }
-        .sensoryFeedback(.success, trigger: milestone)
+        // Starts with the confetti burst. On appear, because the milestone
+        // is already set when the toast shows, so a change trigger never fires.
+        .onAppear { haptics?.play(.celebrate) }
         .task {
             AccessibilityNotification.Announcement("Milestone reached: \(milestone.title). \(milestone.description)").post()
             try? await Task.sleep(for: .seconds(4))

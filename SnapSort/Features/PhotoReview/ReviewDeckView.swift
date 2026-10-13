@@ -15,11 +15,13 @@ struct ReviewDeckView<Leading: View>: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.haptics) private var haptics
 
     @State private var dragOffset: CGSize = .zero
     @State private var draggingPhotoID: String?
     @State private var isCommitting = false
-    @State private var crossedThreshold = false
+    @State private var isDragging = false
+    @State private var swipeZone = SwipeZoneTracker()
     @State private var deckWidth: CGFloat = 360
     @State private var pendingDelete: Photo?
     @State private var detailItem: DetailItem?
@@ -64,7 +66,7 @@ struct ReviewDeckView<Leading: View>: View {
                 deck(photos)
             }
         }
-        .sensoryFeedback(.selection, trigger: crossedThreshold) { _, crossed in crossed }
+        .onAppear { haptics?.prepare() }
         .alert(
             "Move to Trash?",
             isPresented: Binding(
@@ -218,13 +220,22 @@ struct ReviewDeckView<Leading: View>: View {
         DragGesture()
             .onChanged { value in
                 guard !isCommitting else { return }
+                if !isDragging {
+                    isDragging = true
+                    // Wake the hardware now so the threshold click lands on time
+                    haptics?.prepare()
+                }
                 draggingPhotoID = photo.id
                 dragOffset = value.translation
-                crossedThreshold = abs(value.translation.width) > swipeThreshold
+                // A detent click when the card crosses into a swipe zone, a softer one leaving it
+                if let feedback = swipeZone.update(offset: value.translation.width, threshold: swipeThreshold) {
+                    haptics?.play(feedback)
+                }
             }
             .onEnded { value in
+                isDragging = false
+                swipeZone.reset()
                 guard !isCommitting else { return }
-                crossedThreshold = false
 
                 let width = value.translation.width
                 let predicted = value.predictedEndTranslation.width
@@ -259,6 +270,8 @@ struct ReviewDeckView<Leading: View>: View {
     /// Animates the card off-screen, then records the decision
     private func commit(_ direction: SwipeDirection, photo: Photo) {
         isCommitting = true
+        // On the release frame, together with the card starting to fly off
+        haptics?.play(direction == .right ? .bookmark : .trash)
         draggingPhotoID = photo.id
         let distance = deckWidth + 160
 
@@ -360,7 +373,8 @@ private struct DeckActionButton: View {
                     .symbolEffect(.bounce, value: taps)
                     .frame(width: diameter, height: diameter)
             }
-            .buttonStyle(ChunkyButtonStyle(fill: fill, foreground: ink, shape: .circle))
+            // The decision itself plays a haptic, so no key-down tap on top
+            .buttonStyle(ChunkyButtonStyle(fill: fill, foreground: ink, shape: .circle, pressFeedback: false))
             .keyboardShortcut(shortcut, modifiers: [])
             .accessibilityLabel(title)
             .frame(height: rowHeight)

@@ -10,7 +10,7 @@ import Photos
 struct MainTabView: View {
     @EnvironmentObject var appState: AppStateManager
     @EnvironmentObject var analytics: CoreDataAnalyticsService
-    @EnvironmentObject var hapticService: HapticService
+    @EnvironmentObject var haptics: Haptics
     @EnvironmentObject var photoService: PhotoLibraryService
     @EnvironmentObject var bookmarkManager: CoreDataBookmarkManager
     @EnvironmentObject var trashManager: CoreDataTrashManager
@@ -39,7 +39,7 @@ struct MainTabView: View {
             Tab("Review", systemImage: "rectangle.stack", value: AppStateManager.AppTab.review) {
                 ReviewView(
                     photoService: photoService,
-                    haptic: hapticService,
+                    haptics: haptics,
                     analytics: analytics,
                     bookmarkManager: bookmarkManager,
                     trashManager: trashManager,
@@ -77,13 +77,17 @@ struct MainTabView: View {
             PhotoDetailView(asset: asset)
         }
         .task {
+            // Warm up now so the first swipe's feedback isn't late
+            haptics.prepare()
             // Let the first deck load before analysis starts competing for the CPU
             try? await Task.sleep(for: .seconds(3))
             startScanIfAllowed()
         }
         .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            haptics.prepare()
             // Pick up photos taken while the app was in the background
-            if phase == .active { startScanIfAllowed() }
+            startScanIfAllowed()
         }
     }
 

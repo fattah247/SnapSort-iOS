@@ -42,7 +42,7 @@ final class ReviewViewModel: ObservableObject {
 
     private let settings: SettingsViewModel
     private let photoService: any PhotoLibraryServiceProtocol
-    private let haptic: any HapticServiceProtocol
+    private let haptics: any HapticsProtocol
     private let analytics: any AnalyticsServiceProtocol
     private let bookmarkManager: any BookmarkManagerProtocol
     private let trashManager: any TrashManagerProtocol
@@ -88,7 +88,7 @@ final class ReviewViewModel: ObservableObject {
 
     init(
         photoService: any PhotoLibraryServiceProtocol,
-        haptic: any HapticServiceProtocol,
+        haptics: any HapticsProtocol,
         analytics: any AnalyticsServiceProtocol,
         bookmarkManager: any BookmarkManagerProtocol,
         trashManager: any TrashManagerProtocol,
@@ -98,7 +98,7 @@ final class ReviewViewModel: ObservableObject {
         peopleService: PeopleService? = nil
     ) {
         self.photoService = photoService
-        self.haptic = haptic
+        self.haptics = haptics
         self.analytics = analytics
         self.settings = settings
         self.bookmarkManager = bookmarkManager
@@ -268,7 +268,9 @@ final class ReviewViewModel: ObservableObject {
             for identifier in toTrash {
                 analytics.record(.delete, assetIdentifier: identifier)
             }
-            haptic.impact(.medium)
+            haptics.play(.bulkTrash(count: toTrash.count))
+        } else {
+            haptics.play(.confirm)
         }
         smartCategoryService?.similarShots.dismiss(group)
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
@@ -593,11 +595,9 @@ final class ReviewViewModel: ObservableObject {
         switch action {
         case .bookmark:
             bookmarkManager.setBookmarked(true, assetIdentifier: photo.id)
-            haptic.impact(.light)
         case .delete:
             trashManager.addToTrash(assetIdentifier: photo.id)
             sessionStorageSaved += photo.fileSize
-            haptic.impact(.medium)
         }
 
         analytics.record(action, assetIdentifier: photo.id)
@@ -623,7 +623,7 @@ final class ReviewViewModel: ObservableObject {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
             state = .loaded(photos)
         }
-        haptic.impact(.light)
+        haptics.play(.skip)
         scheduleTopPhotoUpgrade()
     }
 
@@ -657,7 +657,7 @@ final class ReviewViewModel: ObservableObject {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
             state = .loaded(photos)
         }
-        haptic.impact(.light)
+        haptics.play(.undo)
     }
 
     // MARK: - Trash All for Person
@@ -669,7 +669,7 @@ final class ReviewViewModel: ObservableObject {
             guard !assets.isEmpty else { return }
             trashManager.addToTrash(assetIdentifiers: assets.map(\.localIdentifier))
             analytics.recordBulkDeletion(count: assets.count)
-            haptic.impact(.medium)
+            haptics.play(.bulkTrash(count: assets.count))
         }
     }
 

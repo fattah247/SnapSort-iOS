@@ -10,6 +10,7 @@ import Photos
 struct TrashView: View {
     @EnvironmentObject var trashManager: CoreDataTrashManager
     @EnvironmentObject var analytics: CoreDataAnalyticsService
+    @Environment(\.haptics) private var haptics
 
     @State private var totalTrashSize: Int64?
     @State private var selectedAsset: PHAsset?
@@ -82,7 +83,6 @@ struct TrashView: View {
             } message: {
                 Text(deleteErrorMessage ?? "")
             }
-            .sensoryFeedback(.success, trigger: deletedCount)
             .task(id: assets.count) {
                 await calculateTrashSize()
             }
@@ -120,6 +120,7 @@ struct TrashView: View {
                 ForEach(assets) { asset in
                     Button {
                         if isSelecting {
+                            haptics?.play(.system(.selection))
                             if !selection.insert(asset.localIdentifier).inserted {
                                 selection.remove(asset.localIdentifier)
                             }
@@ -240,6 +241,7 @@ struct TrashView: View {
 
     private func restore(_ assetsToRestore: [PHAsset]) {
         guard !assetsToRestore.isEmpty else { return }
+        haptics?.play(.restore)
         if assetsToRestore.count == assets.count {
             trashManager.restoreAll()
         } else {
@@ -267,11 +269,13 @@ struct TrashView: View {
             try await trashManager.deletePermanently(assetIdentifiers: assetsToDelete.map(\.localIdentifier))
             analytics.recordSpaceCleared(bytes)
             deletedCount += 1
+            haptics?.play(.system(.success))
             return true
         } catch let error as PHPhotosError where error.code == .userCancelled {
-            // The user tapped "Don't Allow" — nothing to report
+            // The user tapped "Don't Allow" — nothing to report, and no haptic
             return false
         } catch {
+            haptics?.play(.system(.error))
             deleteErrorMessage = error.localizedDescription
             return false
         }

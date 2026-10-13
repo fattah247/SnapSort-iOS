@@ -520,3 +520,174 @@ struct TrashTests {
         #expect(try trashedIdentifiers(in: context).isEmpty)
     }
 }
+
+// MARK: - Haptics
+
+@MainActor
+private final class RecordingHapticOutput: HapticOutput {
+    var played: [HapticPattern] = []
+    var prepared: [[HapticPattern]] = []
+
+    func prepare(_ patterns: [HapticPattern]) { prepared.append(patterns) }
+    func play(_ pattern: HapticPattern) { played.append(pattern) }
+}
+
+@Suite("Haptics")
+@MainActor
+struct HapticsTests {
+    private func makeHaptics(
+        clock: @escaping () -> TimeInterval = { 0 }
+    ) -> (Haptics, RecordingHapticOutput) {
+        let output = RecordingHapticOutput()
+        return (Haptics(output: output, defaults: TestStore.makeDefaults(), clock: clock), output)
+    }
+
+    private func sharpest(_ pattern: HapticPattern) -> Float {
+        pattern.events.map(\.sharpness).max() ?? 0
+    }
+
+    // MARK: Patterns
+
+    @Test func patternsStayShortAndWithinRange() {
+        for pattern in HapticPattern.all {
+            #expect(pattern.duration <= 0.6, "\(pattern) is too long")
+            for event in pattern.events {
+                #expect((0...1).contains(event.intensity), "\(pattern)")
+                #expect((0...1).contains(event.peakIntensity), "\(pattern)")
+                #expect((0...1).contains(event.sharpness), "\(pattern)")
+                #expect(event.time >= 0, "\(pattern)")
+            }
+        }
+        // Played on every swipe, so they must be over almost instantly
+        for pattern in HapticPattern.deck {
+            #expect(pattern.duration <= 0.15, "\(pattern) is too long for the deck")
+        }
+    }
+
+    @Test func frequentFeedbackStaysGentle() {
+        #expect(HapticPattern.skip.peakIntensity <= 0.4)
+        #expect(HapticPattern.press.peakIntensity <= 0.4)
+        #expect(HapticPattern.release.peakIntensity <= 0.4)
+        #expect(HapticPattern.detent(.left).peakIntensity <= 0.6)
+        #expect(HapticPattern.detent(.right).peakIntensity <= 0.6)
+        // Only a celebration gets near full strength
+        for pattern in HapticPattern.all where pattern != .celebrate {
+            #expect(pattern.peakIntensity < 0.85, "\(pattern)")
+        }
+    }
+
+    @Test func trashingIsNotMoreRewardingThanBookmarking() {
+        #expect(abs(HapticPattern.trash.peakIntensity - HapticPattern.bookmark.peakIntensity) <= 0.05)
+    }
+
+    @Test func feelMatchesTheLook() {
+        // Bookmarking is bright and crisp; trashing is round and heavy
+        #expect(sharpest(.bookmark) > sharpest(.trash))
+        #expect(sharpest(.detent(.right)) > sharpest(.detent(.left)))
+    }
+
+    @Test func bookmarkRisesAndUndoFalls() {
+        let bookmark = HapticPattern.bookmark.events.map(\.intensity)
+        let undo = HapticPattern.undo.events.map(\.intensity)
+        #expect(bookmark.count > 1 && bookmark == bookmark.sorted())
+        #expect(undo.count > 1 && undo == undo.sorted(by: >))
+    }
+
+    @Test func bulkTrashCascadesThenLands() {
+        let many = HapticPattern.bulkTrash(count: 40)
+        #expect(many.normalized == .bulkTrash(count: 4))
+
+        let cascadeTicks = many.events.filter { $0.kind == .tap && $0.sharpness == 0.65 }
+        #expect(cascadeTicks.count == Constants.Haptics.maxCascadeTicks)
+        #expect(cascadeTicks.map(\.intensity) == cascadeTicks.map(\.intensity).sorted())
+
+        // It ends with the same thunk as a single trash
+        let landing = many.events.suffix(HapticPattern.trash.events.count)
+        #expect(landing.map(\.sharpness) == HapticPattern.trash.events.map(\.sharpness))
+        #expect(HapticPattern.bulkTrash(count: 1).duration < many.duration)
+    }
+
+    @Test func systemFeedbackKeepsItsIOSMeaning() {
+        #expect(HapticPattern.system(.selection).fallback == .selection)
+        #expect(HapticPattern.system(.success).fallback == .success)
+        #expect(HapticPattern.system(.error).fallback == .error)
+        #expect(HapticPattern.system(.success).events.isEmpty)
+        #expect(HapticPattern.system(.success).isSystem)
+        #expect(!HapticPattern.trash.isSystem)
+    }
+
+    // MARK: Swipe zones
+
+    @Test func swipeZoneClicksOnceOnTheWayInAndOut() {
+        var tracker = SwipeZoneTracker()
+        #expect(tracker.update(offset: 50, threshold: 100) == nil)
+        #expect(tracker.update(offset: 101, threshold: 100) == .detent(.right))
+        #expect(tracker.update(offset: 140, threshold: 100) == nil)
+        // Hovering just under the line doesn't chatter
+        #expect(tracker.update(offset: 95, threshold: 100) == nil)
+        #expect(tracker.update(offset: 101, threshold: 100) == nil)
+        #expect(tracker.update(offset: 80, threshold: 100) == .release)
+        #expect(tracker.update(offset: 60, threshold: 100) == nil)
+    }
+
+    @Test func swipeZoneFollowsDirection() {
+        var tracker = SwipeZoneTracker()
+        #expect(tracker.update(offset: -120, threshold: 100) == .detent(.left))
+        #expect(tracker.update(offset: -20, threshold: 100) == .release)
+        #expect(tracker.update(offset: 130, threshold: 100) == .detent(.right))
+        // Flung straight across to the other zone
+        #expect(tracker.update(offset: -150, threshold: 100) == .detent(.left))
+
+        tracker.reset()
+        #expect(tracker.zone == nil)
+        #expect(tracker.update(offset: 500, threshold: 0) == nil)
+    }
+
+    // MARK: Engine
+
+    @Test func rapidRepeatsOfOnePatternAreDropped() {
+        var now: TimeInterval = 0
+        let (haptics, output) = makeHaptics { now }
+
+        haptics.play(.trash)
+        now = 0.02
+        haptics.play(.trash)
+        haptics.play(.bookmark)
+        now = 0.07
+        haptics.play(.trash)
+
+        #expect(output.played == [.trash, .bookmark, .trash])
+    }
+
+    @Test func bulkPatternsShareOneCascade() {
+        let (haptics, output) = makeHaptics()
+        haptics.play(.bulkTrash(count: 12))
+        #expect(output.played == [.bulkTrash(count: 4)])
+    }
+
+    @Test func prepareWarmsTheDeckPatterns() {
+        let (haptics, output) = makeHaptics()
+        haptics.prepare()
+        #expect(output.prepared == [HapticPattern.deck])
+    }
+
+    @Test func turningHapticsOffSilencesEverything() {
+        let (haptics, output) = makeHaptics()
+        haptics.isEnabled = false
+        haptics.prepare()
+        haptics.play(.bookmark)
+        haptics.play(.system(.success))
+        #expect(output.played.isEmpty)
+        #expect(output.prepared.isEmpty)
+    }
+
+    @Test func theSwitchIsRememberedAndOnByDefault() {
+        let defaults = TestStore.makeDefaults()
+        let firstLaunch = Haptics(output: RecordingHapticOutput(), defaults: defaults)
+        #expect(firstLaunch.isEnabled)
+        firstLaunch.isEnabled = false
+
+        let nextLaunch = Haptics(output: RecordingHapticOutput(), defaults: defaults)
+        #expect(!nextLaunch.isEnabled)
+    }
+}
